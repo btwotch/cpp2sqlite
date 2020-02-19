@@ -51,11 +51,11 @@ static inline void getFileAndLineNumber(clang::SourceLocation sl, clang::SourceM
 struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 	ASTVisitor(clang::SourceManager &sm) : sm(sm) {}
 
+/*
 	bool VisitNamespaceDecl(clang::NamespaceDecl *d) {
 		std::cout << "namespace: " << d->getQualifiedNameAsString() << std::endl;
 		return true;
 	}
-/*
 	bool VisitFieldDecl(clang::FieldDecl *d) {
 		std::cout << "field: " << d->getQualifiedNameAsString() << std::endl;
 		return true;
@@ -75,6 +75,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 		std::string typeName;
 		std::string accessSpecifier;
 		std::string returnTypeName;
+		std::string virtualSpecifier;
 		std::vector<std::pair<std::string, std::string> > args;
 		if (clang::CXXConstructorDecl *cxx = llvm::dyn_cast<clang::CXXConstructorDecl>(d)) {
 				functionName = "CONSTRUCTOR";
@@ -84,7 +85,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 		}
 		if (clang::CXXMethodDecl *cxx = llvm::dyn_cast<clang::CXXMethodDecl>(d)) {
 			typeName = cxx->getParent()->getKindName();
-			className = cxx->getParent()->getName();
+			className = cxx->getParent()->getQualifiedNameAsString();
 			if (cxx->getIdentifier() != nullptr)
 				functionName = cxx->getName();
 			switch (cxx->getAccess()) {
@@ -100,16 +101,23 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 				default:
 					break;
 			}
+			if (cxx->isVirtual()) {
+				virtualSpecifier = "virtual";
+			}
+			for (const auto& base : cxx->getParent()->bases()) {
+				auto baseName = base.getType()->getAsCXXRecordDecl()->getQualifiedNameAsString();
+				std::cout << "base " << baseName << std::endl;
+			}
 			for (unsigned int i = 0; i < d->getNumParams(); i++) {
 				clang::ParmVarDecl* PVD = d->getParamDecl(i);
 				std::string argTypeName = PVD->getType().getAsString();
-				std::string arg = argTypeName;// + " " + PVD->getName();
+				std::string arg = argTypeName;
 				args.emplace_back(std::pair<std::string, std::string>{argTypeName, PVD->getName()});
 			}
 
 			returnTypeName = d->getDeclaredReturnType().getAsString();
 		}
-		std::cout << "decl: " << accessSpecifier << " " << returnTypeName << " " << typeName << " " << className << "  " << functionName << " '|";
+		std::cout << "decl: " << virtualSpecifier << " " << accessSpecifier << " " << returnTypeName << " " << typeName << " " << className << " " << functionName << " '|";
 		for (const std::pair<std::string, std::string> &arg : args) {
 			std::cout << arg.first << " " << arg.second << "|";
 		}
@@ -142,7 +150,6 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 
 private:
 	clang::SourceManager &sm;
-	std::string currentNamespace;
 };
 
 class ASTConsumer : public clang::ASTConsumer {
