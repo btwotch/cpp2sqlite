@@ -1,5 +1,7 @@
 #include <iostream>
 #include <memory>
+#include <future>
+#include <thread>
 
 #include <clang/AST/ASTConsumer.h>
 #include <clang/AST/Attr.h>
@@ -65,7 +67,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 		std::string typeName;
 		std::string accessSpecifier;
 		std::string returnTypeName;
-		std::string virtualSpecifier;
+		bool isVirtual = false;
 		std::vector<std::pair<std::string, std::string> > args;
 		std::vector<ClassData> bases;
 		if (clang::CXXMethodDecl *cxx = llvm::dyn_cast<clang::CXXMethodDecl>(d)) {
@@ -87,8 +89,8 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 				default:
 					break;
 			}
-			if (cxx->isVirtual()) {
-				virtualSpecifier = "virtual";
+			if (cxx->isVirtualAsWritten()) {
+				isVirtual = true;
 			}
 			for (const auto& base : cxx->getParent()->bases()) {
 				ClassData cd = getClassData(base.getType()->getAsCXXRecordDecl());
@@ -110,7 +112,8 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 		if (clang::CXXDestructorDecl *cxx = llvm::dyn_cast<clang::CXXDestructorDecl>(d)) {
 				functionName = std::string{"~"} + std::string{cxx->getParent()->getName()};
 		}
-		std::cout << "decl: " << virtualSpecifier << " " << accessSpecifier << " " << returnTypeName << " " << typeName << " " << cd.className << " " << functionName << " '|";
+		std::string virtualString = isVirtual ? "virtual" : "";
+		std::cout << "decl: " << virtualString << " " << accessSpecifier << " " << returnTypeName << " " << typeName << " " << cd.className << " " << functionName << " '|";
 		for (const std::pair<std::string, std::string> &arg : args) {
 			std::cout << arg.first << " " << arg.second << "|";
 		}
@@ -120,6 +123,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 			db.addClass(cd);
 
 			FunctionData fd;
+			fd.isVirtual = isVirtual;
 			fd.visibility = accessSpecifier;
 			fd.className = cd.className;
 			fd.functionName = functionName;
@@ -218,7 +222,7 @@ private:
 };
 
 
-static bool proceedCommand(std::vector<std::string> commands, llvm::StringRef Directory,
+static bool proceedCommand(std::vector<std::string> commands,
                            const std::string &file, DB &db) {
 
 	commands = clang::tooling::getClangSyntaxOnlyAdjuster()(commands, file);
@@ -263,6 +267,8 @@ int main(int argc, char **argv) {
 	std::vector<std::string> allFiles = Compilations->getAllFiles();
 	std::sort(allFiles.begin(), allFiles.end());
 
+	// TODO: search lock that prevents parallelizing
+	std::vector<std::future<bool> > commandFutures;
 	for (const auto &it: allFiles) {
 		std::string file = clang::tooling::getAbsolutePath(it);
 
@@ -272,8 +278,15 @@ int main(int argc, char **argv) {
 
 		auto compileCommandsForFile = Compilations->getCompileCommands(file);
 		if (!compileCommandsForFile.empty() && !isHeader) {
-			proceedCommand(compileCommandsForFile.front().CommandLine,
-					compileCommandsForFile.front().Directory, file, d);
+			std::vector<std::string> commands = compileCommandsForFile.front().CommandLine;
+			std::future<bool> commandFuture = std::async(std::launch::async, [commands, file, &d] {
+				return proceedCommand(commands, file, d);
+			});
 		}
+
+	}
+
+	for (const auto &commandFuture : commandFutures) {
+		commandFuture.wait();
 	}
 }

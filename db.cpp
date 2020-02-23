@@ -49,7 +49,7 @@ void DB::addClass(const ClassData &cd) {
 	sqlite3_bind_int(stmt, 3, cd.lineNumber);
 
 	if (sqlite3_step(stmt) != SQLITE_DONE) {
-		std::cerr << "stmt: " << SQL_INSERT_CLASS_STMT.c_str() << " failed" << std::endl;
+		std::cerr << "stmt: " << SQL_INSERT_CLASS_STMT.c_str() << " failed" << sqlite3_errmsg(sdb) << std::endl;
 	}
 
 	sqlite3_reset(stmt);
@@ -66,7 +66,7 @@ void DB::addInheritance(const std::string &from, const std::string &to) {
 	sqlite3_bind_text(stmt, 2, from.c_str(), -1, SQLITE_STATIC);
 
 	if (sqlite3_step(stmt) != SQLITE_DONE) {
-		std::cerr << "stmt: " << SQL_INSERT_INHERITANCE_STMT.c_str() << " failed" << std::endl;
+		std::cerr << "stmt: " << SQL_INSERT_INHERITANCE_STMT.c_str() << " failed" << sqlite3_errmsg(sdb) << std::endl;
 	}
 
 	sqlite3_reset(stmt);
@@ -80,13 +80,14 @@ void DB::addFunction(const FunctionData &fd) {
 	}
 
 	sqlite3_bind_text(stmt, 1, fd.visibility.c_str(), -1, SQLITE_STATIC);
-	sqlite3_bind_text(stmt, 2, fd.className.c_str(), -1, SQLITE_STATIC);
-	sqlite3_bind_text(stmt, 3, fd.functionName.c_str(), -1, SQLITE_STATIC);
-	sqlite3_bind_text(stmt, 4, fd.filepath.c_str(), -1, SQLITE_STATIC);
-	sqlite3_bind_int(stmt, 5, fd.lineNumber);
+	sqlite3_bind_int(stmt, 2, fd.isVirtual);
+	sqlite3_bind_text(stmt, 3, fd.className.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 4, fd.functionName.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 5, fd.filepath.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 6, fd.lineNumber);
 
 	if (sqlite3_step(stmt) != SQLITE_DONE) {
-		std::cerr << "stmt: " << SQL_INSERT_FUNCTION_STMT.c_str() << " failed" << std::endl;
+		std::cerr << "stmt: " << SQL_INSERT_FUNCTION_STMT.c_str() << " failed: " << sqlite3_errmsg(sdb) << std::endl;
 	}
 
 	sqlite3_reset(stmt);
