@@ -49,18 +49,8 @@ static inline void getFileAndLineNumber(clang::SourceLocation sl, clang::SourceM
 }
 
 struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
-	ASTVisitor(clang::SourceManager &sm) : sm(sm) {}
+	ASTVisitor(clang::SourceManager &sm, DB &db) : sm(sm), db(db) {}
 
-/*
-	bool VisitNamespaceDecl(clang::NamespaceDecl *d) {
-		std::cout << "namespace: " << d->getQualifiedNameAsString() << std::endl;
-		return true;
-	}
-	bool VisitFieldDecl(clang::FieldDecl *d) {
-		std::cout << "field: " << d->getQualifiedNameAsString() << std::endl;
-		return true;
-	}
-*/
 	bool VisitFunctionDecl(clang::FunctionDecl *d) {
 		clang::SourceLocation sl = d->getBeginLoc();
 		if (!sm.isInMainFile(sl)) {
@@ -71,21 +61,17 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 		getFileAndLineNumber(sl, sm, fileName, lineNumber);
 
 		std::string functionName;
-		std::string className;
+		ClassData cd;
 		std::string typeName;
 		std::string accessSpecifier;
 		std::string returnTypeName;
 		std::string virtualSpecifier;
 		std::vector<std::pair<std::string, std::string> > args;
-		if (clang::CXXConstructorDecl *cxx = llvm::dyn_cast<clang::CXXConstructorDecl>(d)) {
-				functionName = "CONSTRUCTOR";
-		}
-		if (clang::CXXDestructorDecl *cxx = llvm::dyn_cast<clang::CXXDestructorDecl>(d)) {
-				functionName = "DESTRUCTOR";
-		}
+		std::vector<ClassData> bases;
 		if (clang::CXXMethodDecl *cxx = llvm::dyn_cast<clang::CXXMethodDecl>(d)) {
+			cd = getClassData(cxx->getParent());
 			typeName = cxx->getParent()->getKindName();
-			className = cxx->getParent()->getQualifiedNameAsString();
+
 			if (cxx->getIdentifier() != nullptr)
 				functionName = cxx->getName();
 			switch (cxx->getAccess()) {
@@ -105,8 +91,9 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 				virtualSpecifier = "virtual";
 			}
 			for (const auto& base : cxx->getParent()->bases()) {
-				auto baseName = base.getType()->getAsCXXRecordDecl()->getQualifiedNameAsString();
-				std::cout << "base " << baseName << std::endl;
+				ClassData cd = getClassData(base.getType()->getAsCXXRecordDecl());
+				bases.emplace_back(cd);
+				std::cout << "base " << cd.className << std::endl;
 			}
 			for (unsigned int i = 0; i < d->getNumParams(); i++) {
 				clang::ParmVarDecl* PVD = d->getParamDecl(i);
@@ -117,44 +104,57 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 
 			returnTypeName = d->getDeclaredReturnType().getAsString();
 		}
-		std::cout << "decl: " << virtualSpecifier << " " << accessSpecifier << " " << returnTypeName << " " << typeName << " " << className << " " << functionName << " '|";
+		if (clang::CXXConstructorDecl *cxx = llvm::dyn_cast<clang::CXXConstructorDecl>(d)) {
+				functionName = cxx->getParent()->getName();
+		}
+		if (clang::CXXDestructorDecl *cxx = llvm::dyn_cast<clang::CXXDestructorDecl>(d)) {
+				functionName = std::string{"~"} + std::string{cxx->getParent()->getName()};
+		}
+		std::cout << "decl: " << virtualSpecifier << " " << accessSpecifier << " " << returnTypeName << " " << typeName << " " << cd.className << " " << functionName << " '|";
 		for (const std::pair<std::string, std::string> &arg : args) {
 			std::cout << arg.first << " " << arg.second << "|";
 		}
 		std::cout << "': " << fileName << ": " << lineNumber << std::endl;
-		return true;
-	}
 
-/*
-	bool VisitCallExpr(clang::CallExpr *e) {
-		clang::SourceLocation slCaller = e->getBeginLoc();
-		auto callee = e->getDirectCallee();
-		if (callee != nullptr) {
-			clang::SourceLocation slCallee = callee->getBeginLoc();
-			if (!sm.isInMainFile(slCallee)) {
-				return true;
+		if (!cd.className.empty()) {
+			db.addClass(cd);
+
+			FunctionData fd;
+			fd.visibility = accessSpecifier;
+			fd.className = cd.className;
+			fd.functionName = functionName;
+			fd.filepath = fileName;
+			fd.lineNumber = lineNumber;
+			db.addFunction(fd);
+
+			for (const ClassData &base : bases) {
+				db.addInheritance(base.className, cd.className);
 			}
-			std::string fileNameCallee;
-			int lineNumberCallee = -1;
-			getFileAndLineNumber(slCallee, sm, fileNameCallee, lineNumberCallee);
-			std::string fileNameCaller;
-			int lineNumberCaller = -1;
-			getFileAndLineNumber(slCaller, sm, fileNameCaller, lineNumberCaller);
-			//std::cout << "\t--> " << callee->getQualifiedNameAsString() << "(" << fileName << ":" << lineNumber << ")" << std::endl;
-			std::cout << callerQualifiedName << " --> " << callee->getQualifiedNameAsString() << std::endl;
 		}
 
 		return true;
 	}
-*/
+
 
 private:
 	clang::SourceManager &sm;
+	DB &db;
+
+	ClassData getClassData(clang::CXXRecordDecl *d) {
+		clang::SourceLocation sl = d->getBeginLoc();
+		ClassData cd;
+
+		cd.className = d->getQualifiedNameAsString();
+		getFileAndLineNumber(sl, sm, cd.filepath, cd.lineNumber);
+
+		return cd;
+	}
+	
 };
 
 class ASTConsumer : public clang::ASTConsumer {
 public:
-	ASTConsumer(clang::CompilerInstance &ci) : ci(ci) {
+	ASTConsumer(clang::CompilerInstance &ci, DB &db) : ci(ci), db(db) {
 		ci.getPreprocessor().enableIncrementalProcessing();
 	}
 
@@ -186,7 +186,7 @@ public:
 		//std::cout << "HandleTranslationUnit" << std::endl;
 		ci.getPreprocessor().getDiagnostics().getClient();
 
-		ASTVisitor v(Ctx.getSourceManager());
+		ASTVisitor v(Ctx.getSourceManager(), db);
 
 		v.TraverseDecl(Ctx.getTranslationUnitDecl());
 	}
@@ -197,6 +197,7 @@ public:
 
 private:
 	clang::CompilerInstance &ci;
+	DB &db;
 };
 
 class ASTAction : public clang::ASTFrontendAction {
@@ -205,7 +206,7 @@ protected:
 			llvm::StringRef InFile) override {
 		CI.getFrontendOpts().SkipFunctionBodies = true;
 
-		return std::make_unique<ASTConsumer>(CI);
+		return std::make_unique<ASTConsumer>(CI, db);
     }
 
 public:
@@ -218,15 +219,14 @@ private:
 
 
 static bool proceedCommand(std::vector<std::string> commands, llvm::StringRef Directory,
-                           const std::string &file) {
+                           const std::string &file, DB &db) {
 
 	commands = clang::tooling::getClangSyntaxOnlyAdjuster()(commands, file);
 	commands = clang::tooling::getClangStripOutputAdjuster()(commands, file);
 
 	clang::FileManager FM({"."});
 	FM.Retain();
-	DB d("test.db");
-	clang::tooling::ToolInvocation Inv(commands, new ASTAction(d), &FM);
+	clang::tooling::ToolInvocation Inv(commands, new ASTAction(db), &FM);
 
 	bool result = Inv.run();
 	if (!result) {
@@ -241,6 +241,8 @@ int main(int argc, char **argv) {
 		std::cout << "usage: " << argv[0] << " path to directory with compile_commands.json" << std::endl;
 		return 0;
 	}
+
+	DB d("test.db");
 
 	std::string ErrorMessage;
 
@@ -271,7 +273,7 @@ int main(int argc, char **argv) {
 		auto compileCommandsForFile = Compilations->getCompileCommands(file);
 		if (!compileCommandsForFile.empty() && !isHeader) {
 			proceedCommand(compileCommandsForFile.front().CommandLine,
-					compileCommandsForFile.front().Directory, file);
+					compileCommandsForFile.front().Directory, file, d);
 		}
 	}
 }
