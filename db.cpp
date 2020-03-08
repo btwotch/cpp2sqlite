@@ -80,6 +80,7 @@ std::vector<ClassData> DB::getClasses() {
 
 		ret.emplace_back(cd);
 	}
+	sqlite3_reset(stmt);
 
 	return ret;
 }
@@ -101,6 +102,29 @@ void DB::addInheritance(const std::string &from, const std::string &to) {
 	sqlite3_reset(stmt);
 }
 
+std::vector<std::pair<std::string, std::string> > DB::getClassInheritances() {
+	static sqlite3_stmt *stmt = nullptr;
+	std::vector<std::pair<std::string, std::string> > ret;
+
+	if (stmt == nullptr) {
+		sqlite3_prepare_v2(sdb, SQL_SELECT_INHERITANCES_STMT.c_str(), -1, &stmt, 0);
+	}
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		char *className = nullptr;
+		char *inheritsFrom = nullptr;
+
+		className = (char*) sqlite3_column_text(stmt, 0);
+		inheritsFrom = (char*) sqlite3_column_text(stmt, 1);
+
+		std::pair<std::string, std::string> inheritance = {std::string{className}, std::string{inheritsFrom}};
+		ret.emplace_back(inheritance);
+	}
+	sqlite3_reset(stmt);
+
+	return ret;
+}
+
 void DB::addFunction(const FunctionData &fd) {
 	static sqlite3_stmt *stmt = nullptr;
 
@@ -120,4 +144,42 @@ void DB::addFunction(const FunctionData &fd) {
 	}
 
 	sqlite3_reset(stmt);
+}
+
+std::vector<FunctionData> DB::getMethodsOfClass(const std::string &className) {
+	static sqlite3_stmt *stmt = nullptr;
+	std::vector<FunctionData> ret;
+
+	if (stmt == nullptr) {
+		sqlite3_prepare_v2(sdb, SQL_SELECT_METHODS_OF_CLASS_STMT.c_str(), -1, &stmt, 0);
+	}
+
+	sqlite3_bind_text(stmt, 1, className.c_str(), -1, SQLITE_STATIC);
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		FunctionData fd;
+		fd.className = className;
+
+		char *visibility = nullptr;
+		bool isVirtual;
+		char *functionName = nullptr;
+		char *filepath = nullptr;
+		int lineNumber = -1;
+
+		visibility = (char*) sqlite3_column_text(stmt, 0);
+		isVirtual = (bool)sqlite3_column_int(stmt, 1);
+		functionName = (char*) sqlite3_column_text(stmt, 2);
+		filepath = (char*) sqlite3_column_text(stmt, 3);
+		lineNumber = sqlite3_column_int(stmt, 4);
+
+		fd.visibility = std::string{visibility};
+		fd.isVirtual = isVirtual;
+		fd.functionName = std::string{functionName};
+		fd.filepath = std::string{filepath};
+		fd.lineNumber = lineNumber;
+
+		ret.emplace_back(fd);
+	}
+	sqlite3_reset(stmt);
+
+	return ret;
 }

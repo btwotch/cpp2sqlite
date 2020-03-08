@@ -10,7 +10,13 @@ void PlantumlOutput::addClass(const std::string &className) {
 	path.replace_extension(".pu");
 	classFile.open(path);
 
-	classFile << "class " << className << "\n";
+	classFile << "class " << className << "{ \n";
+
+	for (FunctionData &fd : db.getMethodsOfClass(className)) {
+		classFile << "    " << "+" << fd.functionName << "()" << "\n";
+	}
+
+	classFile << "}\n";
 }
 
 void PlantumlOutput::run() {
@@ -25,6 +31,10 @@ void PlantumlOutput::run() {
 	for (const ClassData &cd : classes) {
 		addClass(cd.className);
 		plantumlFile << "!include " << cd.className << ".pu\n";
+	}
+
+	for (const auto &inheritance : db.getClassInheritances()) {
+		plantumlFile << inheritance.first << " --|> " << inheritance.second << "\n";
 	}
 	plantumlFile << "@enduml\n";
 }

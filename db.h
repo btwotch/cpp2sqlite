@@ -32,6 +32,8 @@ public:
 	void addInheritance(const std::string &from, const std::string &to);
 
 	std::vector<ClassData> getClasses();
+	std::vector<std::pair<std::string, std::string> > getClassInheritances();
+	std::vector<FunctionData> getMethodsOfClass(const std::string &className);
 private:
 	sqlite3 *sdb;
 
@@ -71,4 +73,6 @@ private:
 		(className, inherits_from) VALUES (?, ?);)";
 
 	const std::string SQL_SELECT_CLASSES_STMT = R"(SELECT className, filePath, lineNumber from class_declaration;)";
+	const std::string SQL_SELECT_INHERITANCES_STMT = R"(SELECT className, inherits_from from class_inheritance;)";
+	const std::string SQL_SELECT_METHODS_OF_CLASS_STMT = R"(SELECT visibility, virtual, functionName, filepath, lineNumber FROM function_declaration WHERE className = ?;)";
 };
