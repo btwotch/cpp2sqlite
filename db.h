@@ -1,4 +1,5 @@
 #include <iostream>
+#include <vector>
 
 #include <sqlite3.h>
 
@@ -30,6 +31,7 @@ public:
 	void addFunction(const FunctionData &cd);
 	void addInheritance(const std::string &from, const std::string &to);
 
+	std::vector<ClassData> getClasses();
 private:
 	sqlite3 *sdb;
 
@@ -68,4 +70,5 @@ private:
 	const std::string SQL_INSERT_INHERITANCE_STMT = R"(INSERT OR REPLACE INTO class_inheritance 
 		(className, inherits_from) VALUES (?, ?);)";
 
+	const std::string SQL_SELECT_CLASSES_STMT = R"(SELECT className, filePath, lineNumber from class_declaration;)";
 };

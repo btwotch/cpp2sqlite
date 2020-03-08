@@ -55,6 +55,35 @@ void DB::addClass(const ClassData &cd) {
 	sqlite3_reset(stmt);
 }
 
+std::vector<ClassData> DB::getClasses() {
+	static sqlite3_stmt *stmt = nullptr;
+
+	char *className = nullptr;
+	char *filepath = nullptr;
+	int lineNumber = -1;
+
+	std::vector<ClassData> ret;
+
+	if (stmt == nullptr) {
+		sqlite3_prepare_v2(sdb, SQL_SELECT_CLASSES_STMT.c_str(), -1, &stmt, 0);
+	}
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		className = (char*) sqlite3_column_text(stmt, 0);
+		filepath = (char*) sqlite3_column_text(stmt, 1);
+		lineNumber = sqlite3_column_int(stmt, 2);
+
+		ClassData cd;
+		cd.className = std::string{className};
+		cd.filepath = std::string{filepath};
+		cd.lineNumber = lineNumber;
+
+		ret.emplace_back(cd);
+	}
+
+	return ret;
+}
+
 void DB::addInheritance(const std::string &from, const std::string &to) {
 	static sqlite3_stmt *stmt = nullptr;
 

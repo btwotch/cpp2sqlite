@@ -1,6 +1,7 @@
 #include <iostream>
 #include <memory>
 #include <future>
+#include <filesystem>
 #include <thread>
 
 #include <clang/AST/ASTConsumer.h>
@@ -25,6 +26,7 @@
 #include <llvm/ADT/StringSwitch.h>
 
 #include "db.h"
+#include "plantuml.h"
 
 static inline void getFileAndLineNumber(clang::SourceLocation sl, clang::SourceManager &sm, std::string &outFile, int &outLineNumber) {
 	const clang::FullSourceLoc fullloc(sl, sm);
@@ -289,4 +291,8 @@ int main(int argc, char **argv) {
 	for (const auto &commandFuture : commandFutures) {
 		commandFuture.wait();
 	}
+
+	auto outputPath = std::filesystem::current_path() / "output";
+	PlantumlOutput pu(d, outputPath);
+	pu.run();
 }
