@@ -13,7 +13,15 @@ void PlantumlOutput::addClass(const std::string &className) {
 	classFile << "class " << className << "{ \n";
 
 	for (FunctionData &fd : db.getMethodsOfClass(className)) {
-		classFile << "    " << "+" << fd.functionName << "()" << "\n";
+		classFile << "    " << "+" << fd.functionName << "(";
+		bool first = true;
+		for (const auto &arg : fd.args) {
+			if (!first) classFile << ", ";
+			first = false;
+
+			classFile << arg.type << " " << arg.name;
+		}
+		classFile << ")" << "\n";
 	}
 
 	classFile << "}\n";

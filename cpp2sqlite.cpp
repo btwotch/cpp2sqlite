@@ -70,7 +70,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 		std::string accessSpecifier;
 		std::string returnTypeName;
 		bool isVirtual = false;
-		std::vector<std::pair<std::string, std::string> > args;
+		std::vector<FunctionDataArgument> args;
 		std::vector<ClassData> bases;
 		if (clang::CXXMethodDecl *cxx = llvm::dyn_cast<clang::CXXMethodDecl>(d)) {
 			cd = getClassData(cxx->getParent());
@@ -101,9 +101,10 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 			}
 			for (unsigned int i = 0; i < d->getNumParams(); i++) {
 				clang::ParmVarDecl* PVD = d->getParamDecl(i);
-				std::string argTypeName = PVD->getType().getAsString();
-				std::string arg = argTypeName;
-				args.emplace_back(std::pair<std::string, std::string>{argTypeName, PVD->getName()});
+				FunctionDataArgument arg;
+				arg.type = PVD->getType().getAsString();
+				arg.name = PVD->getName();
+				args.emplace_back(arg);
 			}
 
 			returnTypeName = d->getDeclaredReturnType().getAsString();
@@ -116,8 +117,8 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 		}
 		std::string virtualString = isVirtual ? "virtual" : "";
 		std::cout << "decl: " << virtualString << " " << accessSpecifier << " " << returnTypeName << " " << typeName << " " << cd.className << " " << functionName << " '|";
-		for (const std::pair<std::string, std::string> &arg : args) {
-			std::cout << arg.first << " " << arg.second << "|";
+		for (const auto &arg : args) {
+			std::cout << arg.type << " " << arg.name << "|";
 		}
 		std::cout << "': " << fileName << ": " << lineNumber << std::endl;
 
@@ -131,6 +132,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 			fd.functionName = functionName;
 			fd.filepath = fileName;
 			fd.lineNumber = lineNumber;
+			fd.args = args;
 			db.addFunction(fd);
 
 			for (const ClassData &base : bases) {
@@ -269,6 +271,7 @@ int main(int argc, char **argv) {
 	std::vector<std::string> allFiles = Compilations->getAllFiles();
 	std::sort(allFiles.begin(), allFiles.end());
 
+#if 0
 	// TODO: search lock that prevents parallelizing
 	std::vector<std::future<bool> > commandFutures;
 	for (const auto &it: allFiles) {
@@ -290,6 +293,20 @@ int main(int argc, char **argv) {
 
 	for (const auto &commandFuture : commandFutures) {
 		commandFuture.wait();
+	}
+#endif
+	for (const auto &it: allFiles) {
+		std::string file = clang::tooling::getAbsolutePath(it);
+
+		bool isHeader = llvm::StringSwitch<bool>(llvm::sys::path::extension(file))
+			.Cases(".h", ".H", ".hh", ".hpp", true)
+			.Default(false);
+
+		auto compileCommandsForFile = Compilations->getCompileCommands(file);
+		if (!compileCommandsForFile.empty() && !isHeader) {
+			std::vector<std::string> commands = compileCommandsForFile.front().CommandLine;
+			proceedCommand(commands, file, d);
+		}
 	}
 
 	auto outputPath = std::filesystem::current_path() / "output";

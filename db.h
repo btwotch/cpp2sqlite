@@ -5,6 +5,11 @@
 
 #pragma once
 
+struct FunctionDataArgument {
+	std::string type;
+	std::string name;
+};
+
 struct FunctionData {
 	std::string visibility;
 	bool isVirtual;
@@ -12,6 +17,7 @@ struct FunctionData {
 	std::string functionName;
 	std::string filepath;
 	int lineNumber;
+	std::vector<FunctionDataArgument> args;
 };
 
 struct ClassData {
@@ -37,15 +43,23 @@ public:
 private:
 	sqlite3 *sdb;
 
+	std::vector<FunctionDataArgument> getArgsOfMethod(const uint64_t id);
+
 	const std::string SQL_CREATE_FUNCTION_DECLARATIONS_TABLE = R"(CREATE TABLE IF NOT EXISTS
 		function_declaration (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			visibility VARCHAR,
 			virtual BOOLEAN,
 			className VARCHAR,
 			functionName VARCHAR,
 			filepath VARCHAR,
-			lineNumber INTEGER,
-			PRIMARY KEY(className, functionName));)";
+			lineNumber INTEGER);)";
+
+	const std::string SQL_CREATE_FUNCTION_ARGS_TABLE = R"(CREATE TABLE IF NOT EXISTS
+		function_args (
+			function INTEGER REFERENCES function_declaration(id),
+			type VARCHAR,
+			name VARCHAR);)";
 
 	const std::string SQL_CREATE_CLASS_DECLARATIONS_TABLE = R"(CREATE TABLE IF NOT EXISTS
 		class_declaration (
@@ -62,17 +76,21 @@ private:
 	const std::vector<std::string> createTables = {
 		SQL_CREATE_FUNCTION_DECLARATIONS_TABLE,
 		SQL_CREATE_CLASS_DECLARATIONS_TABLE,
-		SQL_CREATE_CLASS_INHERITANCE_TABLE
+		SQL_CREATE_CLASS_INHERITANCE_TABLE,
+		SQL_CREATE_FUNCTION_ARGS_TABLE
 	};
 
 	const std::string SQL_INSERT_CLASS_STMT = R"(INSERT OR REPLACE INTO class_declaration
 		(className, filePath, lineNumber) VALUES (?, ?, ?);)";
 	const std::string SQL_INSERT_FUNCTION_STMT = R"(INSERT OR REPLACE INTO function_declaration
 		(visibility, virtual, className, functionName, filePath, lineNumber) VALUES (?, ?, ?, ?, ?, ?);)";
+	const std::string SQL_INSERT_FUNCTION_ARG_STMT = R"(INSERT INTO function_args
+		(function, type, name) VALUES (?, ?, ?);)";
 	const std::string SQL_INSERT_INHERITANCE_STMT = R"(INSERT OR REPLACE INTO class_inheritance 
 		(className, inherits_from) VALUES (?, ?);)";
 
 	const std::string SQL_SELECT_CLASSES_STMT = R"(SELECT className, filePath, lineNumber from class_declaration;)";
 	const std::string SQL_SELECT_INHERITANCES_STMT = R"(SELECT className, inherits_from from class_inheritance;)";
-	const std::string SQL_SELECT_METHODS_OF_CLASS_STMT = R"(SELECT visibility, virtual, functionName, filepath, lineNumber FROM function_declaration WHERE className = ?;)";
+	const std::string SQL_SELECT_METHODS_OF_CLASS_STMT = R"(SELECT id, visibility, virtual, functionName, filepath, lineNumber FROM function_declaration WHERE className = ?;)";
+	const std::string SQL_SELECT_ARGS_OF_METHOD_STMT = R"(SELECT type, name FROM function_args WHERE function = ?;)";
 };

@@ -143,7 +143,49 @@ void DB::addFunction(const FunctionData &fd) {
 		std::cerr << "stmt: " << SQL_INSERT_FUNCTION_STMT.c_str() << " failed: " << sqlite3_errmsg(sdb) << std::endl;
 	}
 
+	uint64_t id = sqlite3_last_insert_rowid(sdb);
+	for (const auto& arg : fd.args) {
+		static sqlite3_stmt *stmt = nullptr;
+		if (stmt == nullptr) {
+			sqlite3_prepare_v2(sdb, SQL_INSERT_FUNCTION_ARG_STMT.c_str(), -1, &stmt, 0);
+		}
+
+		sqlite3_bind_int(stmt, 1, id);
+		sqlite3_bind_text(stmt, 2, arg.type.c_str(), -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt, 3, arg.name.c_str(), -1, SQLITE_STATIC);
+		if (sqlite3_step(stmt) != SQLITE_DONE) {
+			std::cerr << "stmt: " << SQL_INSERT_FUNCTION_STMT.c_str() << " failed: " << sqlite3_errmsg(sdb) << std::endl;
+		}
+
+		sqlite3_reset(stmt);
+	}
+
 	sqlite3_reset(stmt);
+}
+
+std::vector<FunctionDataArgument> DB::getArgsOfMethod(const uint64_t id) {
+	static sqlite3_stmt *stmt = nullptr;
+	std::vector<FunctionDataArgument> ret;
+
+	if (stmt == nullptr) {
+		sqlite3_prepare_v2(sdb, SQL_SELECT_ARGS_OF_METHOD_STMT.c_str(), -1, &stmt, 0);
+	}
+
+	sqlite3_bind_int(stmt, 1, id);
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		char *type = nullptr;
+		char *name = nullptr;
+		type = (char*) sqlite3_column_text(stmt, 0);
+		name= (char*) sqlite3_column_text(stmt, 1);
+
+		FunctionDataArgument fda;
+		fda.type = std::string{type};
+		fda.name = std::string{name};
+		ret.emplace_back(fda);
+	}
+
+	sqlite3_reset(stmt);
+	return ret;
 }
 
 std::vector<FunctionData> DB::getMethodsOfClass(const std::string &className) {
@@ -164,18 +206,21 @@ std::vector<FunctionData> DB::getMethodsOfClass(const std::string &className) {
 		char *functionName = nullptr;
 		char *filepath = nullptr;
 		int lineNumber = -1;
+		uint64_t id = -1;
 
-		visibility = (char*) sqlite3_column_text(stmt, 0);
-		isVirtual = (bool)sqlite3_column_int(stmt, 1);
-		functionName = (char*) sqlite3_column_text(stmt, 2);
-		filepath = (char*) sqlite3_column_text(stmt, 3);
-		lineNumber = sqlite3_column_int(stmt, 4);
+		id = sqlite3_column_int(stmt, 0);
+		visibility = (char*) sqlite3_column_text(stmt, 1);
+		isVirtual = (bool)sqlite3_column_int(stmt, 2);
+		functionName = (char*) sqlite3_column_text(stmt, 3);
+		filepath = (char*) sqlite3_column_text(stmt, 4);
+		lineNumber = sqlite3_column_int(stmt, 5);
 
 		fd.visibility = std::string{visibility};
 		fd.isVirtual = isVirtual;
 		fd.functionName = std::string{functionName};
 		fd.filepath = std::string{filepath};
 		fd.lineNumber = lineNumber;
+		fd.args = getArgsOfMethod(id);
 
 		ret.emplace_back(fd);
 	}
