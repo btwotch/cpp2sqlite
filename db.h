@@ -16,6 +16,7 @@ struct FunctionData {
 	std::string className;
 	std::string functionName;
 	std::string filepath;
+	std::string returnTypeName;
 	int lineNumber;
 	std::vector<FunctionDataArgument> args;
 };
@@ -51,6 +52,7 @@ private:
 			visibility VARCHAR,
 			virtual BOOLEAN,
 			className VARCHAR,
+			returnTypeName VARCHAR,
 			functionName VARCHAR,
 			filepath VARCHAR,
 			lineNumber INTEGER);)";
@@ -83,7 +85,7 @@ private:
 	const std::string SQL_INSERT_CLASS_STMT = R"(INSERT OR REPLACE INTO class_declaration
 		(className, filePath, lineNumber) VALUES (?, ?, ?);)";
 	const std::string SQL_INSERT_FUNCTION_STMT = R"(INSERT OR REPLACE INTO function_declaration
-		(visibility, virtual, className, functionName, filePath, lineNumber) VALUES (?, ?, ?, ?, ?, ?);)";
+		(visibility, virtual, returnTypeName, className, functionName, filePath, lineNumber) VALUES (?, ?, ?, ?, ?, ?, ?);)";
 	const std::string SQL_INSERT_FUNCTION_ARG_STMT = R"(INSERT INTO function_args
 		(function, type, name) VALUES (?, ?, ?);)";
 	const std::string SQL_INSERT_INHERITANCE_STMT = R"(INSERT OR REPLACE INTO class_inheritance 
@@ -91,6 +93,6 @@ private:
 
 	const std::string SQL_SELECT_CLASSES_STMT = R"(SELECT className, filePath, lineNumber from class_declaration;)";
 	const std::string SQL_SELECT_INHERITANCES_STMT = R"(SELECT className, inherits_from from class_inheritance;)";
-	const std::string SQL_SELECT_METHODS_OF_CLASS_STMT = R"(SELECT id, visibility, virtual, functionName, filepath, lineNumber FROM function_declaration WHERE className = ?;)";
+	const std::string SQL_SELECT_METHODS_OF_CLASS_STMT = R"(SELECT id, visibility, virtual, returnTypeName, functionName, filepath, lineNumber FROM function_declaration WHERE className = ?;)";
 	const std::string SQL_SELECT_ARGS_OF_METHOD_STMT = R"(SELECT type, name FROM function_args WHERE function = ?;)";
 };

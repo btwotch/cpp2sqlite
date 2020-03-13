@@ -127,6 +127,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 
 			FunctionData fd;
 			fd.isVirtual = isVirtual;
+			fd.returnTypeName = returnTypeName;
 			fd.visibility = accessSpecifier;
 			fd.className = cd.className;
 			fd.functionName = functionName;

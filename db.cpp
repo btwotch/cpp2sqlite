@@ -134,10 +134,11 @@ void DB::addFunction(const FunctionData &fd) {
 
 	sqlite3_bind_text(stmt, 1, fd.visibility.c_str(), -1, SQLITE_STATIC);
 	sqlite3_bind_int(stmt, 2, fd.isVirtual);
-	sqlite3_bind_text(stmt, 3, fd.className.c_str(), -1, SQLITE_STATIC);
-	sqlite3_bind_text(stmt, 4, fd.functionName.c_str(), -1, SQLITE_STATIC);
-	sqlite3_bind_text(stmt, 5, fd.filepath.c_str(), -1, SQLITE_STATIC);
-	sqlite3_bind_int(stmt, 6, fd.lineNumber);
+	sqlite3_bind_text(stmt, 3, fd.returnTypeName.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 4, fd.className.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 5, fd.functionName.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 6, fd.filepath.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 7, fd.lineNumber);
 
 	if (sqlite3_step(stmt) != SQLITE_DONE) {
 		std::cerr << "stmt: " << SQL_INSERT_FUNCTION_STMT.c_str() << " failed: " << sqlite3_errmsg(sdb) << std::endl;
@@ -202,6 +203,7 @@ std::vector<FunctionData> DB::getMethodsOfClass(const std::string &className) {
 		fd.className = className;
 
 		char *visibility = nullptr;
+		char *returnTypeName = nullptr;
 		bool isVirtual;
 		char *functionName = nullptr;
 		char *filepath = nullptr;
@@ -211,12 +213,14 @@ std::vector<FunctionData> DB::getMethodsOfClass(const std::string &className) {
 		id = sqlite3_column_int(stmt, 0);
 		visibility = (char*) sqlite3_column_text(stmt, 1);
 		isVirtual = (bool)sqlite3_column_int(stmt, 2);
-		functionName = (char*) sqlite3_column_text(stmt, 3);
-		filepath = (char*) sqlite3_column_text(stmt, 4);
-		lineNumber = sqlite3_column_int(stmt, 5);
+		returnTypeName = (char*) sqlite3_column_text(stmt, 3);
+		functionName = (char*) sqlite3_column_text(stmt, 4);
+		filepath = (char*) sqlite3_column_text(stmt, 5);
+		lineNumber = sqlite3_column_int(stmt, 6);
 
 		fd.visibility = std::string{visibility};
 		fd.isVirtual = isVirtual;
+		fd.returnTypeName = returnTypeName;
 		fd.functionName = std::string{functionName};
 		fd.filepath = std::string{filepath};
 		fd.lineNumber = lineNumber;
