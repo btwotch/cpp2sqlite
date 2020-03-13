@@ -13,15 +13,23 @@ void PlantumlOutput::addClass(const std::string &className) {
 	classFile << "class " << className << "{ \n";
 
 	for (FunctionData &fd : db.getMethodsOfClass(className)) {
-		classFile << "    " << "+" << fd.functionName << "(";
+		std::string methodLine = std::string{"    "} + "+" + fd.returnTypeName + " " + fd.functionName + "(";
 		bool first = true;
+		int argsLineLength = 0;
 		for (const auto &arg : fd.args) {
-			if (!first) classFile << ", ";
+			if (!first) methodLine += ", ";
 			first = false;
+			if (argsLineLength > 80) {
+				argsLineLength = 0;
+				methodLine = methodLine + "\\n\\t";
+			}
 
-			classFile << arg.type << " " << arg.name;
+			methodLine += arg.type + " " + arg.name;
+			argsLineLength += methodLine.length();
 		}
-		classFile << ")" << "\n";
+		methodLine = methodLine + ")" + "\n";
+
+		classFile << methodLine;
 	}
 
 	classFile << "}\n";
@@ -36,6 +44,7 @@ void PlantumlOutput::run() {
 	plantumlFile.open(path);
 
 	plantumlFile << "@startuml\n";
+	plantumlFile << "left to right direction\n";
 	for (const ClassData &cd : classes) {
 		addClass(cd.className);
 		plantumlFile << "!include " << cd.className << ".pu\n";
