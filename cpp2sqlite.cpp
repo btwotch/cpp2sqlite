@@ -124,9 +124,12 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 				isVirtual = true;
 			}
 			for (const auto& base : cxx->getParent()->bases()) {
-				ClassData cd = getClassData(base.getType()->getAsCXXRecordDecl());
-				bases.emplace_back(cd);
-				std::cout << "base " << cd.className << std::endl;
+				auto cxxRecordDecl = base.getType()->getAsCXXRecordDecl();
+				if (cxxRecordDecl != nullptr) {
+					ClassData cd = getClassData(cxxRecordDecl);
+					bases.emplace_back(cd);
+					std::cout << "base " << cd.className << std::endl;
+				}
 			}
 			for (unsigned int i = 0; i < d->getNumParams(); i++) {
 				clang::ParmVarDecl* PVD = d->getParamDecl(i);
