@@ -21,6 +21,12 @@ struct FunctionData {
 	std::vector<FunctionDataArgument> args;
 };
 
+struct VarData {
+	std::string className;
+	std::string type;
+	std::string name;
+};
+
 struct ClassData {
 	std::string className;
 	std::string filepath;
@@ -37,10 +43,13 @@ public:
 	void addClass(const ClassData &cd);
 	void addFunction(const FunctionData &cd);
 	void addInheritance(const std::string &from, const std::string &to);
+	void addVarData(const VarData &vd);
 
 	std::vector<ClassData> getClasses();
 	std::vector<std::pair<std::string, std::string> > getClassInheritances();
 	std::vector<FunctionData> getMethodsOfClass(const std::string &className);
+	std::vector<VarData> getVarsOfClass(const std::string &className);
+
 private:
 	sqlite3 *sdb;
 
@@ -75,10 +84,18 @@ private:
 			inherits_from VARCHAR,
 			PRIMARY KEY (className, inherits_from));)";
 
+	const std::string SQL_CREATE_VARS_TABLE = R"(CREATE TABLE IF NOT EXISTS
+		var_declaration (
+			className VARCHAR,
+			type VARCHAR,
+			name VARCHAR,
+			PRIMARY KEY (className, name));)";
+
 	const std::vector<std::string> createTables = {
 		SQL_CREATE_FUNCTION_DECLARATIONS_TABLE,
 		SQL_CREATE_CLASS_DECLARATIONS_TABLE,
 		SQL_CREATE_CLASS_INHERITANCE_TABLE,
+		SQL_CREATE_VARS_TABLE,
 		SQL_CREATE_FUNCTION_ARGS_TABLE
 	};
 
@@ -90,9 +107,12 @@ private:
 		(function, type, name) VALUES (?, ?, ?);)";
 	const std::string SQL_INSERT_INHERITANCE_STMT = R"(INSERT OR REPLACE INTO class_inheritance 
 		(className, inherits_from) VALUES (?, ?);)";
+	const std::string SQL_INSERT_VAR_STMT = R"(INSERT OR REPLACE INTO var_declaration
+		(className, type, name) VALUES (?, ?, ?);)";
 
 	const std::string SQL_SELECT_CLASSES_STMT = R"(SELECT className, filePath, lineNumber from class_declaration;)";
 	const std::string SQL_SELECT_INHERITANCES_STMT = R"(SELECT className, inherits_from from class_inheritance;)";
 	const std::string SQL_SELECT_METHODS_OF_CLASS_STMT = R"(SELECT id, visibility, virtual, returnTypeName, functionName, filepath, lineNumber FROM function_declaration WHERE className = ?;)";
 	const std::string SQL_SELECT_ARGS_OF_METHOD_STMT = R"(SELECT type, name FROM function_args WHERE function = ?;)";
+	const std::string SQL_SELECT_VARS_OF_CLASS_STMT = R"(SELECT type, name FROM var_declaration WHERE className = ?;)";
 };

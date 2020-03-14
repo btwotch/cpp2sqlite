@@ -55,6 +55,35 @@ static inline void getFileAndLineNumber(clang::SourceLocation sl, clang::SourceM
 struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 	ASTVisitor(clang::SourceManager &sm, DB &db) : sm(sm), db(db) {}
 
+	bool VisitVarDecl(clang::VarDecl *d) {
+		if (!d->isCXXClassMember()) {
+			return true;
+		}
+		clang::SourceLocation sl = d->getBeginLoc();
+		if (!sm.isInMainFile(sl)) {
+			return true;
+		}
+		std::string fileName;
+		int lineNumber = -1;
+		getFileAndLineNumber(sl, sm, fileName, lineNumber);
+
+		if (clang::CXXRecordDecl *cxx = llvm::dyn_cast<clang::CXXRecordDecl>(d->getDeclContext())) {
+			ClassData cd = getClassData(cxx);
+			db.addClass(cd);
+			std::string varName = d->getName();
+			std::string typeName = d->getType().getAsString();
+			std::cout << "vardecl: " << typeName << " " << varName << std::endl;
+			std::cout << "\tclass: " << cd.className << std::endl;
+			VarData vd;
+			vd.className = cd.className;
+			vd.type = typeName;
+			vd.name = varName;
+			db.addVarData(vd);
+		}
+
+		return true;
+	}
+
 	bool VisitFunctionDecl(clang::FunctionDecl *d) {
 		clang::SourceLocation sl = d->getBeginLoc();
 		if (!sm.isInMainFile(sl)) {

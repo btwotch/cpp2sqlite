@@ -85,6 +85,53 @@ std::vector<ClassData> DB::getClasses() {
 	return ret;
 }
 
+void DB::addVarData(const VarData &vd) {
+	static sqlite3_stmt *stmt = nullptr;
+
+	if (stmt == nullptr) {
+		sqlite3_prepare_v2(sdb, SQL_INSERT_VAR_STMT.c_str(), -1, &stmt, 0);
+	}
+
+	sqlite3_bind_text(stmt, 1, vd.className.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 2, vd.type.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 3, vd.name.c_str(), -1, SQLITE_STATIC);
+
+	if (sqlite3_step(stmt) != SQLITE_DONE) {
+		std::cerr << "stmt: " << SQL_INSERT_VAR_STMT.c_str() << " failed" << sqlite3_errmsg(sdb) << std::endl;
+	}
+
+	sqlite3_reset(stmt);
+}
+
+std::vector<VarData> DB::getVarsOfClass(const std::string &className) {
+	static sqlite3_stmt *stmt = nullptr;
+	std::vector<VarData> ret;
+
+	if (stmt == nullptr) {
+		sqlite3_prepare_v2(sdb, SQL_SELECT_VARS_OF_CLASS_STMT.c_str(), -1, &stmt, 0);
+	}
+
+	sqlite3_bind_text(stmt, 1, className.c_str(), -1, SQLITE_STATIC);
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		VarData vd;
+		vd.className = className;
+		char *type = nullptr;
+		char *name = nullptr;
+
+		type = (char*) sqlite3_column_text(stmt, 0);
+		name = (char*) sqlite3_column_text(stmt, 1);
+
+		vd.type = std::string{type};
+		vd.name = std::string{name};
+
+		ret.emplace_back(vd);
+	}
+
+	sqlite3_reset(stmt);
+
+	return ret;
+}
+
 void DB::addInheritance(const std::string &from, const std::string &to) {
 	static sqlite3_stmt *stmt = nullptr;
 

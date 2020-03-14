@@ -13,7 +13,11 @@ void PlantumlOutput::addClass(const std::string &className) {
 	classFile << "class " << className << "{ \n";
 
 	for (FunctionData &fd : db.getMethodsOfClass(className)) {
-		std::string methodLine = std::string{"    "} + "+" + fd.returnTypeName + " " + fd.functionName + "(";
+		std::string visibility;
+		if (fd.visibility == "public") {visibility = "+";}
+		else if (fd.visibility == "protected") {visibility = "#";}
+		else if (fd.visibility == "private") {visibility = "-";}
+		std::string methodLine = std::string{"    "} + visibility + fd.returnTypeName + " " + fd.functionName + "(";
 		bool first = true;
 		int argsLineLength = 0;
 		for (const auto &arg : fd.args) {
@@ -30,6 +34,11 @@ void PlantumlOutput::addClass(const std::string &className) {
 		methodLine = methodLine + ")" + "\n";
 
 		classFile << methodLine;
+	}
+	classFile << "\n";
+
+	for (VarData &vd : db.getVarsOfClass(className)) {
+		classFile << "\t" << vd.type << " " << vd.name << "\n";
 	}
 
 	classFile << "}\n";
