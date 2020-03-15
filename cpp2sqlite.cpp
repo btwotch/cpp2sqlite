@@ -277,25 +277,21 @@ static bool proceedCommand(std::vector<std::string> commands,
 	return true;
 }
 
-int main(int argc, char **argv) {
-	if (argc != 2) {
-		std::cout << "usage: " << argv[0] << " path to directory with compile_commands.json" << std::endl;
-		return 0;
-	}
-
-	DB d("test.db");
-
+int cpp2sqlite(DB &d, std::filesystem::path compilePath) {
 	std::string ErrorMessage;
 
+/*
 	std::unique_ptr<clang::tooling::CompilationDatabase> Compilations(
 			clang::tooling::FixedCompilationDatabase::loadFromCommandLine(argc, argv, ErrorMessage));
 	if (!ErrorMessage.empty()) {
 		std::cerr << ErrorMessage << std::endl;
 		ErrorMessage = {};
 	}
+*/
 
+	std::unique_ptr<clang::tooling::CompilationDatabase> Compilations;
 	Compilations = std::unique_ptr<clang::tooling::CompilationDatabase>(
-			clang::tooling::CompilationDatabase::loadFromDirectory(argv[1], ErrorMessage));
+			clang::tooling::CompilationDatabase::loadFromDirectory(compilePath.string(), ErrorMessage));
 
 	if (!Compilations && !ErrorMessage.empty()) {
 		std::cerr << ErrorMessage << std::endl;
@@ -342,7 +338,5 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	auto outputPath = std::filesystem::current_path() / "output";
-	PlantumlOutput pu(d, outputPath);
-	pu.run();
+	return 0;
 }
