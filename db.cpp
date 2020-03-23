@@ -207,6 +207,19 @@ void DB::addFunction(const FunctionData &fd) {
 
 		sqlite3_reset(stmt);
 	}
+	for (const std::string& m : fd.manglings) {
+		static sqlite3_stmt *stmt = nullptr;
+		if (stmt == nullptr) {
+			sqlite3_prepare_v2(sdb, SQL_INSERT_FUNCTION_MANGLING_STMT.c_str(), -1, &stmt, 0);
+		}
+
+		sqlite3_bind_int(stmt, 1, id);
+		sqlite3_bind_text(stmt, 2, m.c_str(), -1, SQLITE_STATIC);
+		if (sqlite3_step(stmt) != SQLITE_DONE) {
+			std::cerr << "stmt: " << SQL_INSERT_FUNCTION_MANGLING_STMT.c_str() << " failed: " << sqlite3_errmsg(sdb) << std::endl;
+		}
+		sqlite3_reset(stmt);
+	}
 
 	sqlite3_reset(stmt);
 }

@@ -19,6 +19,7 @@ struct FunctionData {
 	std::string returnTypeName;
 	int lineNumber;
 	std::vector<FunctionDataArgument> args;
+	std::vector<std::string> manglings;
 };
 
 struct VarData {
@@ -66,6 +67,11 @@ private:
 			filepath VARCHAR,
 			lineNumber INTEGER);)";
 
+	const std::string SQL_CREATE_FUNCTION_MANGLINGS_TABLE = R"(CREATE TABLE IF NOT EXISTS
+		function_manglings (
+			function INTEGER REFERENCES function_declaration(id),
+			name VARCHAR);)";
+
 	const std::string SQL_CREATE_FUNCTION_ARGS_TABLE = R"(CREATE TABLE IF NOT EXISTS
 		function_args (
 			function INTEGER REFERENCES function_declaration(id),
@@ -74,7 +80,8 @@ private:
 
 	const std::string SQL_CREATE_CLASS_DECLARATIONS_TABLE = R"(CREATE TABLE IF NOT EXISTS
 		class_declaration (
-			className VARCHAR PRIMARY KEY,
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			className VARCHAR UNIQUE,
 			filepath VARCHAR,
 			lineNumber INTEGER);)";
 
@@ -96,13 +103,16 @@ private:
 		SQL_CREATE_CLASS_DECLARATIONS_TABLE,
 		SQL_CREATE_CLASS_INHERITANCE_TABLE,
 		SQL_CREATE_VARS_TABLE,
-		SQL_CREATE_FUNCTION_ARGS_TABLE
+		SQL_CREATE_FUNCTION_ARGS_TABLE,
+		SQL_CREATE_FUNCTION_MANGLINGS_TABLE,
 	};
 
 	const std::string SQL_INSERT_CLASS_STMT = R"(INSERT OR REPLACE INTO class_declaration
 		(className, filePath, lineNumber) VALUES (?, ?, ?);)";
 	const std::string SQL_INSERT_FUNCTION_STMT = R"(INSERT OR REPLACE INTO function_declaration
 		(visibility, virtual, returnTypeName, className, functionName, filePath, lineNumber) VALUES (?, ?, ?, ?, ?, ?, ?);)";
+	const std::string SQL_INSERT_FUNCTION_MANGLING_STMT = R"(INSERT INTO function_manglings
+		(function, name) VALUES (?, ?);)";
 	const std::string SQL_INSERT_FUNCTION_ARG_STMT = R"(INSERT INTO function_args
 		(function, type, name) VALUES (?, ?, ?);)";
 	const std::string SQL_INSERT_INHERITANCE_STMT = R"(INSERT OR REPLACE INTO class_inheritance 

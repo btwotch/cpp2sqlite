@@ -53,7 +53,7 @@ static inline void getFileAndLineNumber(clang::SourceLocation sl, clang::SourceM
 }
 
 struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
-	ASTVisitor(clang::SourceManager &sm, DB &db) : sm(sm), db(db) {}
+	ASTVisitor(clang::ASTContext& astctx, DB &db) : astctx(astctx), sm(astctx.getSourceManager()), db(db) {}
 
 	bool VisitVarDecl(clang::VarDecl *d) {
 		if (!d->isCXXClassMember()) {
@@ -100,7 +100,11 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 		std::string returnTypeName;
 		bool isVirtual = false;
 		std::vector<FunctionDataArgument> args;
+		std::vector<std::string> manglings;
 		std::vector<ClassData> bases;
+
+		clang::ASTNameGenerator ang(astctx);
+		manglings = ang.getAllManglings(d);
 		if (clang::CXXMethodDecl *cxx = llvm::dyn_cast<clang::CXXMethodDecl>(d)) {
 			cd = getClassData(cxx->getParent());
 			typeName = cxx->getParent()->getKindName();
@@ -165,6 +169,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 			fd.functionName = functionName;
 			fd.filepath = fileName;
 			fd.lineNumber = lineNumber;
+			fd.manglings = manglings;
 			fd.args = args;
 			db.addFunction(fd);
 
@@ -178,6 +183,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 
 
 private:
+	clang::ASTContext& astctx;
 	clang::SourceManager &sm;
 	DB &db;
 
@@ -227,7 +233,7 @@ public:
 		//std::cout << "HandleTranslationUnit" << std::endl;
 		ci.getPreprocessor().getDiagnostics().getClient();
 
-		ASTVisitor v(Ctx.getSourceManager(), db);
+		ASTVisitor v(Ctx, db);
 
 		v.TraverseDecl(Ctx.getTranslationUnitDecl());
 	}
