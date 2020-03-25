@@ -6,6 +6,8 @@ CFLAGS = $(shell llvm-config --cflags) -ggdb -fno-omit-frame-pointer -std=c++17 
 #cpp2sqlite: cpp2sqlite.cpp db.cpp db.h plantuml.h plantuml.cpp
 #	clang++ cpp2sqlite.cpp db.cpp plantuml.cpp `llvm-config --cflags --libs` -lclang-cpp -o cpp2sqlite -lsqlite3 -Wall -pedantic -ggdb -fsanitize=address -fno-omit-frame-pointer -std=c++17
 
+all: cpp2sqlite tracelib.so
+
 cpp2sqlite: cpp2sqlite.o db.o plantuml.o main.o
 	${CC} `llvm-config  --libs` -lclang-cpp -o cpp2sqlite -lsqlite3 ${LDFLAGS} -std=c++17 $^
 
@@ -15,6 +17,10 @@ cpp2sqlite: cpp2sqlite.o db.o plantuml.o main.o
 %.o: %.cpp Makefile
 	${CC} ${CFLAGS} -c $<
 
+tracelib.so: tracelib.cpp
+	${CC} -shared -fPIC  $^ -o tracelib.so -O0
+
 .PHONY: clean
+.PHONY: all
 clean:
-	rm -fv cpp2sqlite cpp2sqlite.db test.db core.* *.o *.h.gch
+	rm -fv cpp2sqlite cpp2sqlite.db test.db core.* *.o *.h.gch tracelib.so
