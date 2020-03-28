@@ -34,6 +34,15 @@ struct ClassData {
 	int lineNumber;
 };
 
+struct AddrInfo {
+	std::string executable;
+	std::string addr;
+	std::string symbol;
+	std::string symbol_demangled;
+	std::string file;
+	uint32_t line;
+};
+
 class DB {
 public:
 	DB(const std::string &path);
@@ -47,6 +56,7 @@ public:
 	void addVarData(const VarData &vd);
 	uint64_t addTraceFile(std::string exe, pid_t pid, pid_t ppid, time_t time);
 	void addTrace(uint64_t trace_file, const std::string &callee, const std::string &caller, bool exit, time_t time);
+	void addAddrInfo(const AddrInfo &ai);
 
 	std::vector<ClassData> getClasses();
 	std::vector<std::pair<std::string, std::string> > getClassInheritances();
@@ -118,13 +128,13 @@ private:
 
 	const std::string SQL_CREATE_ADDR_INFO_TABLE = R"(CREATE TABLE IF NOT EXISTS
 		addr_info (
-			exe VARCHAR,
+			exe VARCHAR REFERENCES trace_files(exe),
 			addr VARCHAR,
 			symbol VARCHAR,
 			symbol_demangled VARCHAR,
 			file VARCHAR,
 			line INTEGER,
-			time DATE);)";
+			PRIMARY KEY (exe, addr));)";
 
 	const std::vector<std::string> createTables = {
 		SQL_CREATE_FUNCTION_DECLARATIONS_TABLE,
@@ -155,7 +165,7 @@ private:
 	const std::string SQL_INSERT_TRACE_STMT = R"(INSERT OR REPLACE INTO traces
 		(trace_file, callee, caller, exit, time) VALUES (?, ?, ?, ?, ?);)";
 	const std::string SQL_INSERT_ADDR_INFO_STMT = R"(INSERT OR REPLACE INTO addr_info
-		(exe, addr, symbol, symbol_demangled, file, line, time) VALUES (?, ?, ?, ?, ?, ?, ?);)";
+		(exe, addr, symbol, symbol_demangled, file, line) VALUES (?, ?, ?, ?, ?, ?);)";
 
 	const std::string SQL_SELECT_CLASSES_STMT = R"(SELECT className, filePath, lineNumber from class_declaration;)";
 	const std::string SQL_SELECT_INHERITANCES_STMT = R"(SELECT className, inherits_from from class_inheritance;)";

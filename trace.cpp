@@ -6,6 +6,8 @@
 #include <functional>
 #include <filesystem>
 
+#include "llvm/DebugInfo/Symbolize/Symbolize.h"
+
 #include "trace.h"
 
 namespace fs = std::filesystem;
@@ -28,16 +30,67 @@ void Tracefile::putLine(std::string line) {
 			exe = fields[2];
 		}
 	} else if (fields[0] == "e") {
+		AddrInfo ai;
 		db.addTrace(exeId, fields[1], fields[2], false, std::stoi(fields[3]));
+		ai = addr2line(fields[1]);
+		if (!ai.executable.empty()) {
+			db.addAddrInfo(ai);
+		}
+		ai = addr2line(fields[2]);
+		if (!ai.executable.empty()) {
+			db.addAddrInfo(ai);
+		}
 	} else if (fields[0] == "x") {
+		AddrInfo ai;
 		db.addTrace(exeId, fields[1], fields[2], true, std::stoi(fields[3]));
+		ai = addr2line(fields[1]);
+		if (!ai.executable.empty()) {
+			db.addAddrInfo(ai);
+		}
+		ai = addr2line(fields[2]);
+		if (!ai.executable.empty()) {
+			db.addAddrInfo(ai);
+		}
 	}
 
-	std::cout << "exe: " << exe << " pid: " << pid << " ppid: " << ppid << " time: " << time << std::endl;
-	if (exeId == -1 && pid > 0 && ppid > 0 && !exe.empty() && time > 0) {
-		std::cout << "adding trace_file" << std::endl;
+	if (!initialized && exeId == -1 && pid > 0 && ppid > 0 && !exe.empty() && time > 0) {
+		initSymbolizer();
 		exeId = db.addTraceFile(exe, pid, ppid, time);
+		initialized = true;
 	}
+}
+
+void Tracefile::initSymbolizer() {
+	llvm::symbolize::LLVMSymbolizer::Options Opts;
+	Opts.Demangle = false;
+	Opts.RelativeAddresses = true;
+
+	Symbolizer = new llvm::symbolize::LLVMSymbolizer(Opts);
+}
+
+Tracefile::~Tracefile() {
+	delete Symbolizer;
+}
+
+AddrInfo Tracefile::addr2line(const std::string &addrString) {
+	AddrInfo ai;
+
+	uint64_t addr = std::stoull(addrString, 0, 16);
+	llvm::Expected<llvm::DILineInfo> resOrErr = Symbolizer->symbolizeCode(exe, {addr, llvm::object::SectionedAddress::UndefSection});
+	if (!resOrErr) {
+		std::cerr << "err in symbolizer" << std::endl;
+		return ai;
+	}
+
+	const llvm::DILineInfo &lineInfo = resOrErr.get();
+
+	ai.executable = exe;
+	ai.addr = addrString;
+	ai.symbol = lineInfo.FunctionName;
+	ai.file = lineInfo.FileName;
+	ai.line = lineInfo.Line;
+
+	return ai;
 }
 
 void traceExec(DB &db, std::filesystem::path execFile) {
@@ -56,7 +109,6 @@ void traceExec(DB &db, std::filesystem::path execFile) {
 
 	for (const auto & entry : fs::directory_iterator(*tmpDir)) {
 		std::string line;
-		std::cout << entry.path() << std::endl;
 		std::ifstream traceFile(entry.path());
 		Tracefile tf(db);
 		while(std::getline(traceFile, line)) {

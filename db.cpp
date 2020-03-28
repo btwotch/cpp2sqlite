@@ -336,3 +336,24 @@ void DB::addTrace(uint64_t trace_file, const std::string &callee, const std::str
 	sqlite3_reset(stmt);
 }
 
+void DB::addAddrInfo(const AddrInfo &ai) {
+	static sqlite3_stmt *stmt = nullptr;
+
+	if (stmt == nullptr) {
+		sqlite3_prepare_v2(sdb, SQL_INSERT_ADDR_INFO_STMT.c_str(), -1, &stmt, 0);
+	}
+
+	sqlite3_bind_text(stmt, 1, ai.executable.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 2, ai.addr.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 3, ai.symbol.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 4, ai.symbol_demangled.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 5, ai.file.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 6, ai.line);
+
+	if (sqlite3_step(stmt) != SQLITE_DONE) {
+		std::cerr << "stmt: " << SQL_INSERT_ADDR_INFO_STMT.c_str() << " failed: " << sqlite3_errmsg(sdb) << std::endl;
+	}
+
+	sqlite3_reset(stmt);
+}
+
