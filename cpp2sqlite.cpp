@@ -147,9 +147,11 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 		}
 		if (clang::CXXConstructorDecl *cxx = llvm::dyn_cast<clang::CXXConstructorDecl>(d)) {
 				functionName = cxx->getParent()->getName();
+				returnTypeName = "";
 		}
 		if (clang::CXXDestructorDecl *cxx = llvm::dyn_cast<clang::CXXDestructorDecl>(d)) {
 				functionName = std::string{"~"} + std::string{cxx->getParent()->getName()};
+				returnTypeName = "";
 		}
 		std::string virtualString = isVirtual ? "virtual" : "";
 		std::cout << "decl: " << virtualString << " " << accessSpecifier << " " << returnTypeName << " " << typeName << " " << cd.className << " " << functionName << " '|";
