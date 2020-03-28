@@ -292,3 +292,47 @@ std::vector<FunctionData> DB::getMethodsOfClass(const std::string &className) {
 
 	return ret;
 }
+
+uint64_t DB::addTraceFile(std::string exe, pid_t pid, pid_t ppid, time_t time) {
+	static sqlite3_stmt *stmt = nullptr;
+
+	if (stmt == nullptr) {
+		sqlite3_prepare_v2(sdb, SQL_INSERT_TRACE_FILE_STMT.c_str(), -1, &stmt, 0);
+	}
+
+	sqlite3_bind_text(stmt, 1, exe.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 2, pid);
+	sqlite3_bind_int(stmt, 3, ppid);
+	sqlite3_bind_int(stmt, 4, time);
+
+	if (sqlite3_step(stmt) != SQLITE_DONE) {
+		std::cerr << "stmt: " << SQL_INSERT_TRACE_FILE_STMT.c_str() << " failed: " << sqlite3_errmsg(sdb) << std::endl;
+	}
+
+	uint64_t id = sqlite3_last_insert_rowid(sdb);
+
+	sqlite3_reset(stmt);
+
+	return id;
+}
+
+void DB::addTrace(uint64_t trace_file, const std::string &callee, const std::string &caller, bool exit, time_t time) {
+	static sqlite3_stmt *stmt = nullptr;
+
+	if (stmt == nullptr) {
+		sqlite3_prepare_v2(sdb, SQL_INSERT_TRACE_STMT.c_str(), -1, &stmt, 0);
+	}
+
+	sqlite3_bind_int(stmt, 1, trace_file);
+	sqlite3_bind_text(stmt, 2, callee.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 3, caller.c_str(), -1, SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 4, exit);
+	sqlite3_bind_int(stmt, 5, time);
+
+	if (sqlite3_step(stmt) != SQLITE_DONE) {
+		std::cerr << "stmt: " << SQL_INSERT_TRACE_STMT.c_str() << " failed: " << sqlite3_errmsg(sdb) << std::endl;
+	}
+
+	sqlite3_reset(stmt);
+}
+

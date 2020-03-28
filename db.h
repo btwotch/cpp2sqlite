@@ -45,6 +45,8 @@ public:
 	void addFunction(const FunctionData &cd);
 	void addInheritance(const std::string &from, const std::string &to);
 	void addVarData(const VarData &vd);
+	uint64_t addTraceFile(std::string exe, pid_t pid, pid_t ppid, time_t time);
+	void addTrace(uint64_t trace_file, const std::string &callee, const std::string &caller, bool exit, time_t time);
 
 	std::vector<ClassData> getClasses();
 	std::vector<std::pair<std::string, std::string> > getClassInheritances();
@@ -98,6 +100,32 @@ private:
 			name VARCHAR,
 			PRIMARY KEY (className, name));)";
 
+	const std::string SQL_CREATE_TRACE_FILES_TABLE = R"(CREATE TABLE IF NOT EXISTS
+		trace_files (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			exe VARCHAR,
+			pid INTEGER,
+			ppid INTEGER,
+			time DATE);)";
+
+	const std::string SQL_CREATE_TRACES_TABLE = R"(CREATE TABLE IF NOT EXISTS
+		traces (
+			trace_file INTEGER REFERENCES trace_files(id),
+			callee VARCHAR,
+			caller VARCHAR,
+			exit BOOLEAN,
+			time DATE);)";
+
+	const std::string SQL_CREATE_ADDR_INFO_TABLE = R"(CREATE TABLE IF NOT EXISTS
+		addr_info (
+			exe VARCHAR,
+			addr VARCHAR,
+			symbol VARCHAR,
+			symbol_demangled VARCHAR,
+			file VARCHAR,
+			line INTEGER,
+			time DATE);)";
+
 	const std::vector<std::string> createTables = {
 		SQL_CREATE_FUNCTION_DECLARATIONS_TABLE,
 		SQL_CREATE_CLASS_DECLARATIONS_TABLE,
@@ -105,7 +133,10 @@ private:
 		SQL_CREATE_VARS_TABLE,
 		SQL_CREATE_FUNCTION_ARGS_TABLE,
 		SQL_CREATE_FUNCTION_MANGLINGS_TABLE,
-	};
+		SQL_CREATE_TRACE_FILES_TABLE,
+		SQL_CREATE_TRACES_TABLE,
+		SQL_CREATE_ADDR_INFO_TABLE
+	 };
 
 	const std::string SQL_INSERT_CLASS_STMT = R"(INSERT OR REPLACE INTO class_declaration
 		(className, filePath, lineNumber) VALUES (?, ?, ?);)";
@@ -119,6 +150,12 @@ private:
 		(className, inherits_from) VALUES (?, ?);)";
 	const std::string SQL_INSERT_VAR_STMT = R"(INSERT OR REPLACE INTO var_declaration
 		(className, type, name) VALUES (?, ?, ?);)";
+	const std::string SQL_INSERT_TRACE_FILE_STMT = R"(INSERT OR REPLACE INTO trace_files
+		(exe, pid, ppid, time) VALUES (?, ?, ?, ?);)";
+	const std::string SQL_INSERT_TRACE_STMT = R"(INSERT OR REPLACE INTO traces
+		(trace_file, callee, caller, exit, time) VALUES (?, ?, ?, ?, ?);)";
+	const std::string SQL_INSERT_ADDR_INFO_STMT = R"(INSERT OR REPLACE INTO addr_info
+		(exe, addr, symbol, symbol_demangled, file, line, time) VALUES (?, ?, ?, ?, ?, ?, ?);)";
 
 	const std::string SQL_SELECT_CLASSES_STMT = R"(SELECT className, filePath, lineNumber from class_declaration;)";
 	const std::string SQL_SELECT_INHERITANCES_STMT = R"(SELECT className, inherits_from from class_inheritance;)";

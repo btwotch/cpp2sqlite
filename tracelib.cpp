@@ -51,6 +51,7 @@ private:
 		fp_trace = fopen(filename.c_str(), "w");
 		fprintf(fp_trace, "i time %lu\n", time(nullptr));
 		fprintf(fp_trace, "i pid %d\n", pid);
+		fprintf(fp_trace, "i ppid %d\n", getppid());
 		fprintf(fp_trace, "i exe %s\n", getExecOfPid(pid).c_str());
 		fflush(fp_trace);
 	}
