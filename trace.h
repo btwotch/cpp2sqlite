@@ -1,4 +1,6 @@
 #include <filesystem>
+#include <map>
+#include <tuple>
 
 #include "llvm/DebugInfo/Symbolize/Symbolize.h"
 
@@ -17,6 +19,7 @@ public:
 
 private:
 	AddrInfo addr2line(const std::string &addr);
+	void saveCallingAddrs(const std::string &first, const std::string &second);
 	void initSymbolizer();
 
 	DB &db;
@@ -27,6 +30,10 @@ private:
 	time_t time = -1;
 	bool initialized = false;
 	llvm::symbolize::LLVMSymbolizer *Symbolizer;
+	std::map<std::string, bool> addrInfoStored;
+	std::map<std::tuple<std::string, std::string>, bool> callingTupleStored;
+	std::map<std::tuple<std::string, std::string>, bool> backCallingTupleStored;
+	bool omitTime = true;
 };
 
 void traceExec(DB &db, std::filesystem::path execFile);

@@ -30,26 +30,28 @@ void Tracefile::putLine(std::string line) {
 			exe = fields[2];
 		}
 	} else if (fields[0] == "e") {
-		AddrInfo ai;
-		db.addTrace(exeId, fields[1], fields[2], false, std::stoi(fields[3]));
-		ai = addr2line(fields[1]);
-		if (!ai.executable.empty()) {
-			db.addAddrInfo(ai);
+		if (omitTime) {
+			std::tuple<std::string, std::string> callers = {fields[1], fields[2]};
+			if (callingTupleStored.count(callers)) {
+				return;
+			}
 		}
-		ai = addr2line(fields[2]);
-		if (!ai.executable.empty()) {
-			db.addAddrInfo(ai);
+		db.addTrace(exeId, fields[1], fields[2], false, std::stoi(fields[3]));
+		saveCallingAddrs(fields[1], fields[2]);
+		if (omitTime) {
+			callingTupleStored[std::tuple<std::string, std::string>{fields[1], fields[2]}] = true;
 		}
 	} else if (fields[0] == "x") {
-		AddrInfo ai;
-		db.addTrace(exeId, fields[1], fields[2], true, std::stoi(fields[3]));
-		ai = addr2line(fields[1]);
-		if (!ai.executable.empty()) {
-			db.addAddrInfo(ai);
+		if (omitTime) {
+			std::tuple<std::string, std::string> callers = {fields[1], fields[2]};
+			if (backCallingTupleStored.count(callers)) {
+				return;
+			}
 		}
-		ai = addr2line(fields[2]);
-		if (!ai.executable.empty()) {
-			db.addAddrInfo(ai);
+		db.addTrace(exeId, fields[1], fields[2], true, std::stoi(fields[3]));
+		saveCallingAddrs(fields[1], fields[2]);
+		if (omitTime) {
+			backCallingTupleStored[std::tuple<std::string, std::string>{fields[1], fields[2]}] = true;
 		}
 	}
 
@@ -57,6 +59,26 @@ void Tracefile::putLine(std::string line) {
 		initSymbolizer();
 		exeId = db.addTraceFile(exe, pid, ppid, time);
 		initialized = true;
+	}
+}
+
+void Tracefile::saveCallingAddrs(const std::string &first, const std::string &second) {
+	AddrInfo ai;
+
+	if (addrInfoStored.count(first) == 0) {
+		ai = addr2line(first);
+		if (!ai.executable.empty()) {
+			db.addAddrInfo(ai);
+		}
+		addrInfoStored[first] = true;
+	}
+
+	if (addrInfoStored.count(second) == 0) {
+		ai = addr2line(second);
+		if (!ai.executable.empty()) {
+			db.addAddrInfo(ai);
+		}
+		addrInfoStored[second] = true;
 	}
 }
 
@@ -75,6 +97,9 @@ Tracefile::~Tracefile() {
 AddrInfo Tracefile::addr2line(const std::string &addrString) {
 	AddrInfo ai;
 
+	if (exe.empty()) {
+		std::cerr << "exe is empty" << std::endl;
+	}
 	uint64_t addr = std::stoull(addrString, 0, 16);
 	llvm::Expected<llvm::DILineInfo> resOrErr = Symbolizer->symbolizeCode(exe, {addr, llvm::object::SectionedAddress::UndefSection});
 	if (!resOrErr) {
@@ -110,6 +135,7 @@ void traceExec(DB &db, std::filesystem::path execFile) {
 	for (const auto & entry : fs::directory_iterator(*tmpDir)) {
 		std::string line;
 		std::ifstream traceFile(entry.path());
+		std::cout << "Parsing " << entry.path() << std::endl;
 		Tracefile tf(db);
 		while(std::getline(traceFile, line)) {
 			tf.putLine(line);
