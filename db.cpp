@@ -249,6 +249,30 @@ std::vector<FunctionDataArgument> DB::getArgsOfMethod(const uint64_t id) {
 	return ret;
 }
 
+std::vector<EnrichedTrace> DB::getEnrichedTraces() {
+	static sqlite3_stmt *stmt = nullptr;
+	std::vector<EnrichedTrace> ret;
+
+	if (stmt == nullptr) {
+		sqlite3_prepare_v2(sdb, SQL_SELECT_ENRICHED_CALLINGS_STMT.c_str(), -1, &stmt, 0);
+	}
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		EnrichedTrace et;
+		et.caller.className = std::string{(char*) sqlite3_column_text(stmt, 0)};
+		et.caller.functionName = std::string{(char*) sqlite3_column_text(stmt, 1)};
+		et.caller.lineNumber = sqlite3_column_int(stmt, 2);
+		et.callee.className = std::string{(char*) sqlite3_column_text(stmt, 3)};
+		et.callee.functionName = std::string{(char*) sqlite3_column_text(stmt, 4)};
+		et.callee.lineNumber = sqlite3_column_int(stmt, 5);
+
+		ret.emplace_back(et);
+	}
+
+	sqlite3_reset(stmt);
+	return ret;
+}
+
 std::vector<FunctionData> DB::getMethodsOfClass(const std::string &className) {
 	static sqlite3_stmt *stmt = nullptr;
 	std::vector<FunctionData> ret;

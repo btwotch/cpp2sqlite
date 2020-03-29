@@ -43,6 +43,17 @@ struct AddrInfo {
 	uint32_t line;
 };
 
+struct CallInfo {
+	std::string className;
+	std::string functionName;
+	int lineNumber;
+};
+
+struct EnrichedTrace {
+	CallInfo caller;
+	CallInfo callee;
+};
+
 class DB {
 public:
 	DB(const std::string &path);
@@ -62,6 +73,7 @@ public:
 	std::vector<std::pair<std::string, std::string> > getClassInheritances();
 	std::vector<FunctionData> getMethodsOfClass(const std::string &className);
 	std::vector<VarData> getVarsOfClass(const std::string &className);
+	std::vector<EnrichedTrace> getEnrichedTraces();
 
 private:
 	sqlite3 *sdb;
@@ -166,10 +178,31 @@ private:
 		(trace_file, callee, caller, exit, time) VALUES (?, ?, ?, ?, ?);)";
 	const std::string SQL_INSERT_ADDR_INFO_STMT = R"(INSERT OR REPLACE INTO addr_info
 		(exe, addr, symbol, symbol_demangled, file, line) VALUES (?, ?, ?, ?, ?, ?);)";
+	// TODO: build transitive hull only for symbols outside of source code dir
+	const std::string SQL_INSERT_TRACES_HULL_STMT = R"(
+		WITH is_calling(cr, ce) AS
+			(SELECT caller, caller
+				FROM traces
+			UNION SELECT i.cr, callee
+				FROM is_calling i, traces tt
+			WHERE i.ce=tt.caller)
+		INSERT INTO test_trace_hull(caller, callee) SELECT * FROM is_calling WHERE cr <> ce ORDER BY cr;
+	)";
 
 	const std::string SQL_SELECT_CLASSES_STMT = R"(SELECT className, filePath, lineNumber from class_declaration;)";
 	const std::string SQL_SELECT_INHERITANCES_STMT = R"(SELECT className, inherits_from from class_inheritance;)";
 	const std::string SQL_SELECT_METHODS_OF_CLASS_STMT = R"(SELECT id, visibility, virtual, returnTypeName, functionName, filepath, lineNumber FROM function_declaration WHERE className = ?;)";
 	const std::string SQL_SELECT_ARGS_OF_METHOD_STMT = R"(SELECT type, name FROM function_args WHERE function = ?;)";
 	const std::string SQL_SELECT_VARS_OF_CLASS_STMT = R"(SELECT type, name FROM var_declaration WHERE className = ?;)";
+
+	const std::string SQL_SELECT_ENRICHED_CALLINGS_STMT = R"(
+		SELECT DISTINCT fr.className, fr.functionName, ar.line, fe.className, fe.functionName, ae.line
+		FROM traces t, addr_info ae, addr_info ar, function_manglings me, function_manglings mr, function_declaration fe, function_declaration fr
+		WHERE t.callee = ae.addr
+			AND t.caller = ar.addr
+			AND me.name = ae.symbol
+			AND mr.name = ar.symbol
+			AND me.function = fe.id
+			AND mr.function = fr.id
+	;)";
 };
