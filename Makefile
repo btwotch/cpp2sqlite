@@ -22,5 +22,9 @@ tracelib.so: tracelib.cpp
 
 .PHONY: clean
 .PHONY: all
+.PHONY: mrproper
 clean:
-	rm -fv cpp2sqlite cpp2sqlite.db test.db core.* *.o *.h.gch tracelib.so trace.so
+	rm -fv cpp2sqlite test.db core.* *.o *.h.gch tracelib.so trace.so
+
+mrproper: clean
+	rm -fv cpp2sqlite.db
