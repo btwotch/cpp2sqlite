@@ -4,6 +4,7 @@
 #include <string>
 
 #include "plantuml.h"
+#include "dot.h"
 #include "cpp2sqlite.h"
 #include "trace.h"
 
@@ -14,13 +15,17 @@ int main(int argc, char **argv) {
 	CLI::App *parse = app.add_subcommand("parse", "parse C++ code");
 	std::filesystem::path compileCommandDir;
 	std::filesystem::path databaseFile = "cpp2sqlite.db";
+	std::filesystem::path outputDir;
 	parse->add_option("path to compile_command.json directory", compileCommandDir, "Directory name")->required()->check(CLI::ExistingDirectory);
 	parse->add_option("--dbname", databaseFile, "database path", true)->check(CLI::NonexistentPath);
 
 	CLI::App *plantuml = app.add_subcommand("plantuml", "generate plantuml files from database");
-	std::filesystem::path outputDir;
 	plantuml->add_option("path to database", databaseFile, "File name")->required()->check(CLI::ExistingFile);
 	plantuml->add_option("output directory", outputDir, "Directory name")->required()->check(CLI::ExistingDirectory);
+
+	CLI::App *dot = app.add_subcommand("dot", "generate dot callgraph file from database");
+	dot->add_option("path to database", databaseFile, "File name")->required()->check(CLI::ExistingFile);
+	dot->add_option("output directory", outputDir, "Directory name")->required()->check(CLI::ExistingDirectory);
 
 	CLI::App *trace = app.add_subcommand("trace", "trace a binary that has been compiled with '-finstrument-functions -g'");
 	std::filesystem::path execFile;
@@ -34,6 +39,9 @@ int main(int argc, char **argv) {
 	if (*plantuml) {
 		PlantumlOutput pu(d, outputDir);
 		pu.run();
+	} else if (*dot) {
+		DotOutput dot(d, outputDir);
+		dot.run();
 	} else if (*parse) {
 		cpp2sqlite(d, compileCommandDir);
 	} else if (*trace) {
