@@ -105,12 +105,16 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 
 		clang::ASTNameGenerator ang(astctx);
 		manglings = ang.getAllManglings(d);
+		if (d->getIdentifier() != nullptr)
+			functionName = d->getName();
+		if (manglings.empty() && !functionName.empty()) {
+			manglings.emplace_back(functionName);
+		}
+		returnTypeName = d->getDeclaredReturnType().getAsString();
 		if (clang::CXXMethodDecl *cxx = llvm::dyn_cast<clang::CXXMethodDecl>(d)) {
 			cd = getClassData(cxx->getParent());
 			typeName = cxx->getParent()->getKindName();
 
-			if (cxx->getIdentifier() != nullptr)
-				functionName = cxx->getName();
 			switch (cxx->getAccess()) {
 				case clang::AS_public:
 					accessSpecifier = "public";
@@ -143,7 +147,6 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 				args.emplace_back(arg);
 			}
 
-			returnTypeName = d->getDeclaredReturnType().getAsString();
 		}
 		if (clang::CXXConstructorDecl *cxx = llvm::dyn_cast<clang::CXXConstructorDecl>(d)) {
 				functionName = cxx->getParent()->getName();
@@ -163,22 +166,23 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 		if (!cd.className.empty()) {
 			db.addClass(cd);
 
-			FunctionData fd;
-			fd.isVirtual = isVirtual;
-			fd.returnTypeName = returnTypeName;
-			fd.visibility = accessSpecifier;
-			fd.className = cd.className;
-			fd.functionName = functionName;
-			fd.filepath = fileName;
-			fd.lineNumber = lineNumber;
-			fd.manglings = manglings;
-			fd.args = args;
-			db.addFunction(fd);
-
 			for (const ClassData &base : bases) {
 				db.addInheritance(base.className, cd.className);
 			}
 		}
+
+		FunctionData fd;
+		fd.isVirtual = isVirtual;
+		fd.returnTypeName = returnTypeName;
+		fd.visibility = accessSpecifier;
+		fd.className = cd.className;
+		fd.functionName = functionName;
+		fd.filepath = fileName;
+		fd.lineNumber = lineNumber;
+		fd.manglings = manglings;
+		fd.args = args;
+		db.addFunction(fd);
+
 
 		return true;
 	}
