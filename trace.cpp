@@ -8,6 +8,7 @@
 
 #include "llvm/DebugInfo/Symbolize/Symbolize.h"
 
+#include "utils.h"
 #include "trace.h"
 
 namespace fs = std::filesystem;
@@ -16,7 +17,7 @@ void Tracefile::putLine(std::string line) {
 	std::vector<std::string> fields;
 	std::istringstream splitter(line);
 	std::string s;
-	while (getline(splitter, s, ' ')) {
+	while (std::getline(splitter, s, ' ')) {
 		fields.emplace_back(s);
 	}
 	if (fields[0] == "i") {
@@ -119,20 +120,13 @@ AddrInfo Tracefile::addr2line(const std::string &addrString) {
 }
 
 void traceExec(DB &db, std::filesystem::path execFile) {
-	std::unique_ptr<fs::path, std::function<void(fs::path*)>> tmpDir(
-		new fs::path(std::tmpnam(nullptr)),
-		[](fs::path *p){
-			std::filesystem::remove_all(*p);
-			delete p;
-		});
-
-	fs::create_directories(*tmpDir);
-	setenv("CPP2S_TRACE_DIR_OUTPUT", tmpDir->string().c_str(), 1);
+	TemporaryDir tmpDir("/tmp/cpp2s_trace_dir-XXXXXX");
+	setenv("CPP2S_TRACE_DIR_OUTPUT", tmpDir.string().c_str(), 1);
 	fs::path tracelibPath("tracelib.so");
 	setenv("LD_PRELOAD", fs::absolute(tracelibPath).string().c_str(), 1);
 	std::system(execFile.string().c_str());
 
-	for (const auto & entry : fs::directory_iterator(*tmpDir)) {
+	for (const auto & entry : fs::directory_iterator(tmpDir)) {
 		std::string line;
 		std::ifstream traceFile(entry.path());
 		std::cout << "Parsing " << entry.path() << std::endl;
