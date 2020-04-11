@@ -261,10 +261,8 @@ std::vector<EnrichedTrace> DB::getEnrichedTraces() {
 		EnrichedTrace et;
 		et.caller.className = std::string{(char*) sqlite3_column_text(stmt, 0)};
 		et.caller.functionName = std::string{(char*) sqlite3_column_text(stmt, 1)};
-		et.caller.lineNumber = sqlite3_column_int(stmt, 2);
-		et.callee.className = std::string{(char*) sqlite3_column_text(stmt, 3)};
-		et.callee.functionName = std::string{(char*) sqlite3_column_text(stmt, 4)};
-		et.callee.lineNumber = sqlite3_column_int(stmt, 5);
+		et.callee.className = std::string{(char*) sqlite3_column_text(stmt, 2)};
+		et.callee.functionName = std::string{(char*) sqlite3_column_text(stmt, 3)};
 
 		ret.emplace_back(et);
 	}

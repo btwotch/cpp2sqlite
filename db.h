@@ -196,7 +196,7 @@ private:
 	const std::string SQL_SELECT_VARS_OF_CLASS_STMT = R"(SELECT type, name FROM var_declaration WHERE className = ?;)";
 
 	const std::string SQL_SELECT_ENRICHED_CALLINGS_STMT = R"(
-		SELECT DISTINCT fr.className, fr.functionName, ar.line, fe.className, fe.functionName, ae.line
+		SELECT DISTINCT fr.className, fr.functionName, fe.className, fe.functionName
 		FROM traces t, addr_info ae, addr_info ar, function_manglings me, function_manglings mr, function_declaration fe, function_declaration fr
 		WHERE t.callee = ae.addr
 			AND t.caller = ar.addr
