@@ -14,7 +14,7 @@ cpp2sqlite: cpp2sqlite.o db.o plantuml.o main.o trace.o dot.o
 %.o: %.cpp %.h Makefile
 	${CC} ${CFLAGS} -c $<
 
-%.o: %.cpp Makefile
+main.o: main.cpp Makefile
 	${CC} ${CFLAGS} -c $<
 
 tracelib.so: tracelib.cpp
