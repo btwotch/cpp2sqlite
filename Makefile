@@ -17,8 +17,8 @@ cpp2sqlite: cpp2sqlite.o db.o plantuml.o main.o trace.o dot.o
 main.o: main.cpp Makefile
 	${CC} ${CFLAGS} -c $<
 
-tracelib.so: tracelib.cpp
-	${CC} -shared -fPIC  $^ -o tracelib.so -O0 -ggdb -ldl -rdynamic
+tracelib.so: tracelib.cpp fastwrite.hpp
+	${CC} -shared -fPIC  $< -o tracelib.so -O0 -ggdb -ldl -rdynamic
 
 .PHONY: clean
 .PHONY: all
