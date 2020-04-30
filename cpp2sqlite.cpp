@@ -55,12 +55,31 @@ static inline void getFileAndLineNumber(clang::SourceLocation sl, clang::SourceM
 struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 	ASTVisitor(clang::ASTContext& astctx, DB &db) : astctx(astctx), sm(astctx.getSourceManager()), db(db) {}
 
+	bool VisitFieldDecl(clang::FieldDecl *d) {
+		clang::SourceLocation sl = d->getBeginLoc();
+		if (skip(sl)) {
+			return true;
+		}
+		std::string filePath;
+		int lineNumber;
+		getFileAndLineNumber(sl, sm, filePath, lineNumber);
+		std::string name = d->getName();
+		std::string typeName = d->getType().getAsString();
+		VarData vd;
+		vd.className = d->getParent()->getQualifiedNameAsString();
+		vd.type = typeName;
+		vd.name = name;
+		db.addVarData(vd);
+
+		return true;
+	}
+
 	bool VisitVarDecl(clang::VarDecl *d) {
 		if (!d->isCXXClassMember()) {
 			return true;
 		}
 		clang::SourceLocation sl = d->getBeginLoc();
-		if (!sm.isInMainFile(sl)) {
+		if (skip(sl)) {
 			return true;
 		}
 		std::string fileName;
@@ -86,7 +105,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 
 	bool VisitFunctionDecl(clang::FunctionDecl *d) {
 		clang::SourceLocation sl = d->getBeginLoc();
-		if (!sm.isInMainFile(sl)) {
+		if (skip(sl)) {
 			return true;
 		}
 		std::string fileName;
@@ -201,6 +220,10 @@ private:
 		getFileAndLineNumber(sl, sm, cd.filepath, cd.lineNumber);
 
 		return cd;
+	}
+
+	bool skip(clang::SourceLocation& sl) {
+		return sm.isInSystemHeader(sl);
 	}
 	
 };
