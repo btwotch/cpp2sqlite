@@ -239,10 +239,8 @@ public:
 	}
 
 	virtual void Initialize(clang::ASTContext& Ctx) override {
-		//ci.getDiagnostics().setClient(new BrowserDiagnosticClient(annotator), true);
 		ci.getDiagnostics().setErrorLimit(0);
 
-		//std::cout << "Initialize" << std::endl;
 	}
 
 	virtual bool HandleTopLevelDecl(clang::DeclGroupRef D) override {
@@ -302,7 +300,8 @@ static bool proceedCommand(std::vector<std::string> commands,
 
 	clang::FileManager FM({"."});
 	FM.Retain();
-	clang::tooling::ToolInvocation Inv(commands, new ASTAction(db), &FM);
+	std::unique_ptr<clang::FrontendAction> fa = std::make_unique<ASTAction>(db);
+	clang::tooling::ToolInvocation Inv(commands, std::move(fa), &FM);
 
 	bool result = Inv.run();
 	if (!result) {
