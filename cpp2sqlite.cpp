@@ -276,7 +276,7 @@ private:
 	DB &db;
 };
 
-class ASTAction : public clang::ASTFrontendAction {
+class ASTAction : public clang::FrontendAction {
 protected:
 	std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance &CI,
 			llvm::StringRef InFile) override {
@@ -287,6 +287,8 @@ protected:
 
 public:
 	bool hasCodeCompletionSupport() const override { return true; }
+	bool usesPreprocessorOnly() const override { return true; }
+	void ExecuteAction() override {}
 	ASTAction(DB &db) : db(db) {}
 
 private:
@@ -302,7 +304,8 @@ static bool proceedCommand(std::vector<std::string> commands,
 
 	clang::FileManager FM({"."});
 	FM.Retain();
-	clang::tooling::ToolInvocation Inv(commands, new ASTAction(db), &FM);
+	std::unique_ptr<clang::FrontendAction> fa = std::make_unique<ASTAction>(db);
+	clang::tooling::ToolInvocation Inv(commands, std::move(fa), &FM);
 
 	bool result = Inv.run();
 	if (!result) {
