@@ -8,8 +8,11 @@ CFLAGS = $(shell llvm-config --cflags) -ggdb -fno-omit-frame-pointer -std=c++17 
 
 all: cpp2sqlite tracelib.so
 
+#LDFLAGS = -D_REENTRANT=1 -DSQLITE_THREADSAFE=1 -DSQLITE_ENABLE_FTS4 -DSQLITE_ENABLE_FTS5 -DSQLITE_ENABLE_JSON1 -DSQLITE_ENABLE_RTREE -DSQLITE_ENABLE_GEOPOLY -DSQLITE_HAVE_ZLIB -DSQLITE_ENABLE_EXPLAIN_COMMENTS -DSQLITE_ENABLE_DBPAGE_VTAB -DSQLITE_ENABLE_STMTVTAB -DSQLITE_ENABLE_DBSTAT_VTAB /usr/local/lib/libsqlite3.a -ldl -lpthread -lm
+
 cpp2sqlite: cpp2sqlite.o db.o plantuml.o main.o trace.o dot.o
-	${CC} `llvm-config  --libs` -lclang-cpp -o cpp2sqlite -lsqlite3 ${LDFLAGS} -std=c++17 -lstdc++fs $^
+	${CC} $^ `llvm-config  --libfiles --libs --link-static --ldflags` `pkg-config --libs --static sqlite3` -static ${LDFLAGS} -std=c++17 -lstdc++fs
+	#${CC} `llvm-config  --libs --link-static` -lclang-cpp -o cpp2sqlite -lsqlite3 ${LDFLAGS} -std=c++17 -lstdc++fs $^
 
 %.o: %.cpp %.h Makefile
 	${CC} ${CFLAGS} -c $<
