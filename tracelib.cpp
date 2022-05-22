@@ -7,54 +7,67 @@
 #include <string>
 #include <thread>
 
+#include "fastwrite.hpp"
+
 class __traceOutput {
 public:
         __traceOutput() {
 		init();
-		fp_trace = nullptr;
+		fw = nullptr;
         }
 
         ~__traceOutput() {
-		if(fp_trace != nullptr) {
-			fclose(fp_trace);
+		if(fw != nullptr) {
+			delete fw;
+			fw = nullptr;
 		}
 	}
 
 	void enterFunc(void *func, void *caller) __attribute__((always_inline)) {
 		init();
-		fprintf(fp_trace, "e %p %p %lu\n", func, caller, time(nullptr));
-		fflush(fp_trace);
+		char line[256];
+		snprintf(line, sizeof(line), "e %p %p %lu\n", func, caller, time(nullptr));
+		fw->append(line);
 	}
 
 	void exitFunc(void *func, void *caller) __attribute__((always_inline)) {
 		init();
-		fprintf(fp_trace, "x %p %p %lu\n", func, caller, time(nullptr));
-		fflush(fp_trace);
+		char line[256];
+		snprintf(line, sizeof(line), "x %p %p %lu\n", func, caller, time(nullptr));
+		fw->append(line);
 	}
+
+	void close() {
+		delete fw;
+		fw = nullptr;
+	}
+
 private:
 	void init() __attribute__((always_inline)) {
+		char line[1024];
 		pid_t pid_new = getpid();
 		pid_t tid_new = gettid();
-		if (pid_new == pid && tid_new == tid && fp_trace != nullptr) {
+		if (pid_new == pid && tid_new == tid && fw != nullptr) {
 			return;
 		}
-		if (pid > 0 && fp_trace != nullptr) {
-			fclose(fp_trace);
+		if (pid > 0 && fw != nullptr) {
+			delete fw;
+			fw = nullptr;
 		}
 		pid_t pid_old = pid;
 		pid = pid_new;
 		tid = tid_new;
 		char *dirp = getenv("CPP2S_TRACE_DIR_OUTPUT");
 		snprintf(filename, sizeof(filename), "%s/trace.out.%d.%d", dirp, pid, tid);
-		fp_trace = fopen(filename, "w");
-		if (fp_trace == nullptr) {
-			fprintf(stderr, "could not open %s: %s\n", filename, strerror(errno));
-		}
-		fprintf(fp_trace, "i time %lu\n", time(nullptr));
-		fprintf(fp_trace, "i pid %d\n", pid);
-		fprintf(fp_trace, "i ppid %d\n", getppid());
-		fprintf(fp_trace, "i exe %s\n", getExecOfPid(pid));
-		fflush(fp_trace);
+		fw = new FastWrite(filename);
+		snprintf(line, sizeof(line), "i time %lu\n", time(nullptr));
+		fw->append(line);
+		snprintf(line, sizeof(line), "i pid %d\n", pid);
+		fw->append(line);
+		snprintf(line, sizeof(line), "i ppid %d\n", getppid());
+		fw->append(line);
+		snprintf(line, sizeof(line), "i exe %s\n", getExecOfPid(pid));
+		fw->append(line);
 	}
 
 	char* getExecOfPid(pid_t pid) __attribute__((always_inline)) {
@@ -71,7 +84,7 @@ private:
 		return exePath;
 	}
 
-	FILE *fp_trace = nullptr;
+	FastWrite *fw = nullptr;
 	char filename[4096];
 	pid_t pid = -1;
 	pid_t tid = -1;
@@ -90,6 +103,11 @@ extern "C" {
 	__cyg_profile_func_exit (void *func, void *caller)
 	{
 		__tO.exitFunc(func, caller);
+	}
+
+	__attribute__((destructor))
+	static void onExit() {
+		__tO.close();
 	}
 }
 

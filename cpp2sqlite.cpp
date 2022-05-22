@@ -55,12 +55,31 @@ static inline void getFileAndLineNumber(clang::SourceLocation sl, clang::SourceM
 struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 	ASTVisitor(clang::ASTContext& astctx, DB &db) : astctx(astctx), sm(astctx.getSourceManager()), db(db) {}
 
+	bool VisitFieldDecl(clang::FieldDecl *d) {
+		clang::SourceLocation sl = d->getBeginLoc();
+		if (skip(sl)) {
+			return true;
+		}
+		std::string filePath;
+		int lineNumber;
+		getFileAndLineNumber(sl, sm, filePath, lineNumber);
+		std::string name = d->getName().str();
+		std::string typeName = d->getType().getAsString();
+		VarData vd;
+		vd.className = d->getParent()->getQualifiedNameAsString();
+		vd.type = typeName;
+		vd.name = name;
+		db.addVarData(vd);
+
+		return true;
+	}
+
 	bool VisitVarDecl(clang::VarDecl *d) {
 		if (!d->isCXXClassMember()) {
 			return true;
 		}
 		clang::SourceLocation sl = d->getBeginLoc();
-		if (!sm.isInMainFile(sl)) {
+		if (skip(sl)) {
 			return true;
 		}
 		std::string fileName;
@@ -70,7 +89,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 		if (clang::CXXRecordDecl *cxx = llvm::dyn_cast<clang::CXXRecordDecl>(d->getDeclContext())) {
 			ClassData cd = getClassData(cxx);
 			db.addClass(cd);
-			std::string varName = d->getName();
+			std::string varName = d->getName().str();
 			std::string typeName = d->getType().getAsString();
 			std::cout << "vardecl: " << typeName << " " << varName << std::endl;
 			std::cout << "\tclass: " << cd.className << std::endl;
@@ -86,7 +105,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 
 	bool VisitFunctionDecl(clang::FunctionDecl *d) {
 		clang::SourceLocation sl = d->getBeginLoc();
-		if (!sm.isInMainFile(sl)) {
+		if (skip(sl)) {
 			return true;
 		}
 		std::string fileName;
@@ -202,6 +221,10 @@ private:
 
 		return cd;
 	}
+
+	bool skip(clang::SourceLocation& sl) {
+		return sm.isInSystemHeader(sl);
+	}
 	
 };
 
@@ -216,10 +239,8 @@ public:
 	}
 
 	virtual void Initialize(clang::ASTContext& Ctx) override {
-		//ci.getDiagnostics().setClient(new BrowserDiagnosticClient(annotator), true);
 		ci.getDiagnostics().setErrorLimit(0);
 
-		//std::cout << "Initialize" << std::endl;
 	}
 
 	virtual bool HandleTopLevelDecl(clang::DeclGroupRef D) override {
@@ -279,7 +300,8 @@ static bool proceedCommand(std::vector<std::string> commands,
 
 	clang::FileManager FM({"."});
 	FM.Retain();
-	clang::tooling::ToolInvocation Inv(commands, new ASTAction(db), &FM);
+	std::unique_ptr<clang::FrontendAction> fa = std::make_unique<ASTAction>(db);
+	clang::tooling::ToolInvocation Inv(commands, std::move(fa), &FM);
 
 	bool result = Inv.run();
 	if (!result) {

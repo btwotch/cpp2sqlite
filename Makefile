@@ -9,7 +9,7 @@ CFLAGS = $(shell llvm-config --cflags) -ggdb -fno-omit-frame-pointer -std=c++17 
 all: cpp2sqlite tracelib.so
 
 cpp2sqlite: cpp2sqlite.o db.o plantuml.o main.o trace.o dot.o
-	${CC} `llvm-config  --libs` -lclang-cpp -o cpp2sqlite -lsqlite3 ${LDFLAGS} -std=c++17 $^
+	${CC} `llvm-config  --libs` -lclang-cpp -o cpp2sqlite -lsqlite3 ${LDFLAGS} -std=c++17 -lstdc++fs $^
 
 %.o: %.cpp %.h Makefile
 	${CC} ${CFLAGS} -c $<
@@ -17,8 +17,8 @@ cpp2sqlite: cpp2sqlite.o db.o plantuml.o main.o trace.o dot.o
 main.o: main.cpp Makefile
 	${CC} ${CFLAGS} -c $<
 
-tracelib.so: tracelib.cpp
-	${CC} -shared -fPIC  $^ -o tracelib.so -O0 -ggdb -ldl -rdynamic
+tracelib.so: tracelib.cpp fastwrite.hpp
+	${CC} -shared -fPIC  $< -o tracelib.so -O0 -ggdb -ldl -rdynamic
 
 .PHONY: clean
 .PHONY: all

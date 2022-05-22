@@ -44,11 +44,27 @@ void PlantumlOutput::addClass(const std::string &className) {
 	classFile << "}\n";
 }
 
-void PlantumlOutput::run() {
+void PlantumlOutput::runSequenceDiagram() {
+	std::vector<EnrichedTrace> ets = db.getEnrichedTraces();
+
+	std::ofstream plantumlFile;
+	std::filesystem::path path = outputDir / "sequence";
+	path.replace_extension(".pu");
+	plantumlFile.open(path);
+
+	plantumlFile << "@startuml\n";
+	for (const auto &et : ets) {
+		plantumlFile << et.caller.className << " --> " << et.callee.className << ": " << et.callee.functionName << "\n";
+	}
+
+	plantumlFile << "@enduml\n";
+}
+
+void PlantumlOutput::runClassDiagram() {
 	std::vector<ClassData> classes = db.getClasses();
 
 	std::ofstream plantumlFile;
-	std::filesystem::path path = outputDir / "index";
+	std::filesystem::path path = outputDir / "classes";
 	path.replace_extension(".pu");
 	plantumlFile.open(path);
 
@@ -63,4 +79,9 @@ void PlantumlOutput::run() {
 		plantumlFile << inheritance.first << " --|> " << inheritance.second << "\n";
 	}
 	plantumlFile << "@enduml\n";
+}
+
+void PlantumlOutput::run() {
+	runClassDiagram();
+	runSequenceDiagram();
 }

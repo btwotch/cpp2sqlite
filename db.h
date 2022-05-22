@@ -132,6 +132,7 @@ private:
 
 	const std::string SQL_CREATE_TRACES_TABLE = R"(CREATE TABLE IF NOT EXISTS
 		traces (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			trace_file INTEGER REFERENCES trace_files(id),
 			callee VARCHAR,
 			caller VARCHAR,
@@ -196,13 +197,15 @@ private:
 	const std::string SQL_SELECT_VARS_OF_CLASS_STMT = R"(SELECT type, name FROM var_declaration WHERE className = ?;)";
 
 	const std::string SQL_SELECT_ENRICHED_CALLINGS_STMT = R"(
-		SELECT DISTINCT fr.className, fr.functionName, fe.className, fe.functionName
+		SELECT fr.className, fr.functionName, fe.className, fe.functionName
 		FROM traces t, addr_info ae, addr_info ar, function_manglings me, function_manglings mr, function_declaration fe, function_declaration fr
 		WHERE t.callee = ae.addr
+			AND t.exit = 0
 			AND t.caller = ar.addr
 			AND me.name = ae.symbol
 			AND mr.name = ar.symbol
 			AND me.function = fe.id
 			AND mr.function = fr.id
+		ORDER by t.id
 	;)";
 };
