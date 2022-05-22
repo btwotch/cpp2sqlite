@@ -63,7 +63,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 		std::string filePath;
 		int lineNumber;
 		getFileAndLineNumber(sl, sm, filePath, lineNumber);
-		std::string name = d->getName();
+		std::string name = d->getName().str();
 		std::string typeName = d->getType().getAsString();
 		VarData vd;
 		vd.className = d->getParent()->getQualifiedNameAsString();
@@ -89,7 +89,7 @@ struct ASTVisitor : clang::RecursiveASTVisitor<ASTVisitor> {
 		if (clang::CXXRecordDecl *cxx = llvm::dyn_cast<clang::CXXRecordDecl>(d->getDeclContext())) {
 			ClassData cd = getClassData(cxx);
 			db.addClass(cd);
-			std::string varName = d->getName();
+			std::string varName = d->getName().str();
 			std::string typeName = d->getType().getAsString();
 			std::cout << "vardecl: " << typeName << " " << varName << std::endl;
 			std::cout << "\tclass: " << cd.className << std::endl;

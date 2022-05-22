@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
 	std::filesystem::path databaseFile = "cpp2sqlite.db";
 	std::filesystem::path outputDir;
 	parse->add_option("path to compile_command.json directory", compileCommandDir, "Directory name")->required()->check(CLI::ExistingDirectory);
-	parse->add_option("--dbname", databaseFile, "database path", true)->check(CLI::NonexistentPath);
+	parse->add_option("--dbname", databaseFile, "database path")->check(CLI::NonexistentPath);
 
 	CLI::App *plantuml = app.add_subcommand("plantuml", "generate plantuml files from database");
 	plantuml->add_option("path to database", databaseFile, "File name")->required()->check(CLI::ExistingFile);
@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
 	CLI::App *trace = app.add_subcommand("trace", "trace a binary that has been compiled with '-finstrument-functions -g'");
 	std::filesystem::path execFile;
 	trace->add_option("path to executable", execFile, "File name")->required()->check(CLI::ExistingFile);
-	trace->add_option("--dbname", databaseFile, "database path", true);
+	trace->add_option("--dbname", databaseFile, "database path");
 
 	app.require_subcommand(1);
 	CLI11_PARSE(app, argc, argv);
